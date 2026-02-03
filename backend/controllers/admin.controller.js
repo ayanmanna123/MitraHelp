@@ -1,47 +1,62 @@
 const User = require('../models/user.model');
 
-// @desc    Get all pending volunteers
-// @route   GET /api/admin/pending-volunteers
+// @desc    Get all volunteer applications
+// @route   GET /api/admin/volunteers
 // @access  Private (Admin)
-exports.getPendingVolunteers = async (req, res) => {
+exports.getVolunteers = async (req, res) => {
     try {
-        const volunteers = await User.find({ volunteerStatus: 'pending' }).select('name phone governmentIdImage selfieImage createdAt');
+        // Check if user is admin
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Access denied. Admin only.' });
+        }
+
+        const volunteers = await User.find({ 
+            role: { $in: ['user', 'volunteer'] },
+            volunteerStatus: { $in: ['pending', 'approved', 'rejected'] }
+        }).select('name phone email volunteerStatus governmentIdImage selfieImage rejectionReason createdAt');
+
         res.status(200).json({
             success: true,
-            count: volunteers.length,
             data: volunteers
         });
+
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: 'Server Error', error: error.message });
     }
 };
 
-// @desc    Approve volunteer
-// @route   PUT /api/admin/approve-volunteer/:id
+// @desc    Approve volunteer application
+// @route   POST /api/admin/volunteers/:id/approve
 // @access  Private (Admin)
 exports.approveVolunteer = async (req, res) => {
     try {
-        const user = await User.findById(req.params.id);
-
-        if (!user) {
-            return res.status(404).json({ success: false, message: 'User not found' });
+        // Check if user is admin
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Access denied. Admin only.' });
         }
 
-        if (user.volunteerStatus !== 'pending') {
-            return res.status(400).json({ success: false, message: `User status is ${user.volunteerStatus}, must be pending` });
-        }
-
-        user.volunteerStatus = 'approved';
-        user.role = 'volunteer'; // Upgrade role
-        user.isVerified = true; // Ensure they are marked verified
+        const volunteer = await User.findById(req.params.id);
         
-        await user.save();
+        if (!volunteer) {
+            return res.status(404).json({ success: false, message: 'Volunteer not found' });
+        }
+
+        if (volunteer.volunteerStatus === 'approved') {
+            return res.status(400).json({ success: false, message: 'Volunteer already approved' });
+        }
+
+        // Update volunteer status
+        volunteer.volunteerStatus = 'approved';
+        volunteer.role = 'volunteer';
+        volunteer.rejectionReason = undefined;
+        
+        await volunteer.save();
 
         res.status(200).json({
             success: true,
             message: 'Volunteer approved successfully',
-            data: user
+            data: volunteer
         });
 
     } catch (error) {
@@ -50,32 +65,42 @@ exports.approveVolunteer = async (req, res) => {
     }
 };
 
-// @desc    Reject volunteer
-// @route   PUT /api/admin/reject-volunteer/:id
+// @desc    Reject volunteer application
+// @route   POST /api/admin/volunteers/:id/reject
 // @access  Private (Admin)
 exports.rejectVolunteer = async (req, res) => {
     try {
-         const { reason } = req.body;
-         const user = await User.findById(req.params.id);
-
-        if (!user) {
-            return res.status(404).json({ success: false, message: 'User not found' });
+        // Check if user is admin
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Access denied. Admin only.' });
         }
 
-         if (user.volunteerStatus !== 'pending') {
-            return res.status(400).json({ success: false, message: `User status is ${user.volunteerStatus}, must be pending` });
-        }
-
-        user.volunteerStatus = 'rejected';
-        user.rejectionReason = reason || 'Documents did not match requirements';
-        // Note: We don't change the role, they remain 'user'
+        const { reason } = req.body;
         
-        await user.save();
+        if (!reason) {
+            return res.status(400).json({ success: false, message: 'Rejection reason is required' });
+        }
+
+        const volunteer = await User.findById(req.params.id);
+        
+        if (!volunteer) {
+            return res.status(404).json({ success: false, message: 'Volunteer not found' });
+        }
+
+        if (volunteer.volunteerStatus === 'rejected') {
+            return res.status(400).json({ success: false, message: 'Volunteer already rejected' });
+        }
+
+        // Update volunteer status
+        volunteer.volunteerStatus = 'rejected';
+        volunteer.rejectionReason = reason;
+        
+        await volunteer.save();
 
         res.status(200).json({
             success: true,
-            message: 'Volunteer application rejected',
-            data: user
+            message: 'Volunteer rejected successfully',
+            data: volunteer
         });
 
     } catch (error) {

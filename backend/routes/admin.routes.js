@@ -1,5 +1,5 @@
 const express = require('express');
-const { getPendingVolunteers, approveVolunteer, rejectVolunteer } = require('../controllers/admin.controller');
+const { getVolunteers, approveVolunteer, rejectVolunteer } = require('../controllers/admin.controller');
 const { protect, admin } = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -9,8 +9,8 @@ router.use(protect);
 // All routes require admin role
 router.use(admin);
 
-router.get('/pending-volunteers', getPendingVolunteers);
-router.put('/approve-volunteer/:id', approveVolunteer);
-router.put('/reject-volunteer/:id', rejectVolunteer);
+router.get('/volunteers', getVolunteers);
+router.post('/volunteers/:id/approve', approveVolunteer);
+router.post('/volunteers/:id/reject', rejectVolunteer);
 
 module.exports = router;

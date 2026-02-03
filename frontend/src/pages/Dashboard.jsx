@@ -29,9 +29,16 @@ const Dashboard = () => {
         <div className="min-h-screen bg-gray-50">
             <nav className="bg-white shadow-sm p-4 flex justify-between items-center">
                 <h1 className="text-xl font-bold text-red-600">MitraHelp Dashboard</h1>
-                <button onClick={logout} className="text-gray-600 hover:text-red-600 font-medium">
-                    Logout
-                </button>
+                <div className="flex items-center gap-4">
+                    {user?.role === 'admin' && (
+                        <Link to="/admin" className="text-blue-600 hover:text-blue-800 font-medium">
+                            Admin Panel
+                        </Link>
+                    )}
+                    <button onClick={logout} className="text-gray-600 hover:text-red-600 font-medium">
+                        Logout
+                    </button>
+                </div>
             </nav>
 
             <main className="container mx-auto px-4 py-8">
