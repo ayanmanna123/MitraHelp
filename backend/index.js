@@ -26,6 +26,8 @@ if (process.env.NODE_ENV === 'development') {
 
 // Routes
 app.use('/api/auth', require('./routes/auth.routes'));
+app.use('/api/emergency', require('./routes/emergency.routes'));
+app.use('/api/users', require('./routes/user.routes'));
 
 app.get('/', (req, res) => {
     res.send('MitraHelp Backend API is running...');
@@ -39,8 +41,19 @@ const io = new Server(server, {
     }
 });
 
+// Make io accessible in controllers
+app.set('socketio', io);
+
 io.on('connection', (socket) => {
     console.log('New client connected:', socket.id);
+
+    // Join room with user ID for personal notifications
+    socket.on('join', (userId) => {
+        if (userId) {
+            socket.join(userId);
+            console.log(`User ${userId} joined room`);
+        }
+    });
     
     socket.on('disconnect', () => {
         console.log('Client disconnected:', socket.id);

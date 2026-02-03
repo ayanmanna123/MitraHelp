@@ -42,7 +42,11 @@ const userSchema = new mongoose.Schema({
     },
     fcmToken: {
         type: String
-    }
+    },
+    blockedUsers: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }]
 }, {
     timestamps: true
 });
