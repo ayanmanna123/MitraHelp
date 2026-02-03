@@ -65,12 +65,25 @@ export const AuthProvider = ({ children }) => {
         toast.success('Logged out successfully');
     };
 
+    const refreshUserData = async () => {
+        try {
+            const { data } = await api.get('/auth/me');
+            if (data.success) {
+                setUser(data.data);
+                return data.data;
+            }
+        } catch (error) {
+            console.error('Error refreshing user data:', error);
+        }
+    };
+
     const value = {
         user,
         loading,
         sendOtp,
         verifyOtp,
-        logout
+        logout,
+        refreshUserData
     };
 
     return (

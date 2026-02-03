@@ -1,6 +1,9 @@
 const User = require('../models/user.model');
 const Otp = require('../models/otp.model');
 const generateToken = require('../utils/generateToken');
+const { OAuth2Client } = require('google-auth-library');
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // @desc    Send OTP to phone
 // @route   POST /api/auth/send-otp
@@ -36,6 +39,65 @@ exports.sendOtp = async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    }
+};
+
+// @desc    Google Login/Signup
+// @route   POST /api/auth/google
+// @access  Public
+exports.googleLogin = async (req, res) => {
+    try {
+        const { idToken } = req.body;
+
+        if (!idToken) {
+            return res.status(400).json({ success: false, message: 'Google ID Token is required' });
+        }
+
+        const ticket = await googleClient.verifyIdToken({
+            idToken,
+            audience: process.env.GOOGLE_CLIENT_ID,
+        });
+
+        const { name, email, picture, sub: googleId } = ticket.getPayload();
+
+        let user = await User.findOne({ 
+            $or: [{ googleId }, { email }]
+        });
+
+        let isNewUser = false;
+
+        if (user) {
+            // Update existing user with googleId if missing (linking accounts)
+            if (!user.googleId) {
+                user.googleId = googleId;
+                await user.save();
+            }
+        } else {
+            // Create new user, assume phone is missing initially
+            user = await User.create({
+                name,
+                email,
+                googleId,
+                profilePicture: picture,
+                isVerified: true, // Google emails are verified
+                role: 'user'
+            });
+            isNewUser = true;
+        }
+
+        const token = generateToken(user._id);
+
+        res.status(200).json({
+            success: true,
+            message: 'Google login successful',
+            token,
+            user,
+            isNewUser
+        });
+
+    } catch (error) {
+        console.error("Google Auth Error:", error);
+        res.status(401).json({ success: false, message: 'Invalid Google Token', error: error.message });
     }
 };
 
@@ -102,6 +164,44 @@ exports.getMe = async (req, res) => {
     }
 };
 
+// Helper function to calculate volunteer progress
+const calculateVolunteerProgress = (user) => {
+    const progress = {
+        personalInfoComplete: false,
+        documentsUploaded: false,
+        verificationPending: false,
+        completedSteps: 0,
+        totalSteps: 3,
+        percentage: 0
+    };
+
+    // Check if personal info is complete
+    if (user.name && user.phone && user.email) {
+        progress.personalInfoComplete = true;
+        progress.completedSteps++;
+    }
+
+    // Check if documents are uploaded
+    if (user.governmentIdImage && user.selfieImage) {
+        progress.documentsUploaded = true;
+        progress.completedSteps++;
+    }
+
+    // Check verification status
+    if (user.volunteerStatus === 'pending') {
+        progress.verificationPending = true;
+        progress.completedSteps++; // Count as completed since it's submitted
+    } else if (user.volunteerStatus === 'approved') {
+        progress.verificationPending = true;
+        progress.completedSteps++; // Count as completed since approved
+    }
+
+    // Calculate percentage
+    progress.percentage = Math.round((progress.completedSteps / progress.totalSteps) * 100);
+    
+    return progress;
+};
+
 // @desc    Update user profile (Name, Location, Role)
 // @route   PUT /api/auth/profile
 // @access  Private
@@ -111,7 +211,12 @@ exports.updateProfile = async (req, res) => {
 
         const user = await User.findById(req.user.id);
 
-        if (name) user.name = name;
+        let profileChanged = false;
+        
+        if (name) {
+            user.name = name;
+            profileChanged = true;
+        }
         if (role) user.role = role;
         if (bloodGroup) user.bloodGroup = bloodGroup;
         if (fcmToken) user.fcmToken = fcmToken;
@@ -123,6 +228,15 @@ exports.updateProfile = async (req, res) => {
                 type: 'Point',
                 coordinates: [parseFloat(longitude), parseFloat(latitude)]
             };
+            profileChanged = true;
+        }
+
+        // If profile info was updated and user is a volunteer, update progress
+        if (profileChanged && (user.role === 'volunteer' || user.role === 'user')) {
+            const progress = calculateVolunteerProgress(user);
+            if (progress.personalInfoComplete) {
+                user.volunteerProgress.personalInfoComplete = true;
+            }
         }
 
         await user.save();

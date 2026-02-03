@@ -1,8 +1,29 @@
 import { useAuth } from '../context/AuthContext';
-import { FaMapMarkerAlt, FaUserShield } from 'react-icons/fa';
+import { useState, useEffect } from 'react';
+import { FaMapMarkerAlt, FaUserShield, FaChartBar, FaArrowRight } from 'react-icons/fa';
+import { Link } from 'react-router-dom';
+import api from '../services/api';
 
 const Dashboard = () => {
     const { user, logout } = useAuth();
+    const [volunteerProgress, setVolunteerProgress] = useState(null);
+
+    useEffect(() => {
+        if (user?.role === 'volunteer' || user?.role === 'user') {
+            fetchVolunteerProgress();
+        }
+    }, [user]);
+
+    const fetchVolunteerProgress = async () => {
+        try {
+            const response = await api.get('/volunteer/progress');
+            if (response.data.success) {
+                setVolunteerProgress(response.data.data);
+            }
+        } catch (error) {
+            console.error('Error fetching volunteer progress:', error);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -27,6 +48,42 @@ const Dashboard = () => {
                             {user?.role}
                         </span>
                     </div>
+
+                    {/* Volunteer Progress Bar for Volunteers */}
+                    {(user?.role === 'volunteer' || user?.role === 'user') && user?.volunteerStatus !== 'approved' && (
+                        <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-lg">
+                            <div className="flex justify-between items-center mb-2">
+                                <h3 className="font-semibold text-blue-800">Volunteer Registration Progress</h3>
+                                <Link to="/volunteer-profile" className="text-blue-600 hover:text-blue-800 flex items-center">
+                                    View Details <FaArrowRight className="ml-1 text-sm" />
+                                </Link>
+                            </div>
+                            
+                            <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
+                                <div 
+                                    className="bg-gradient-to-r from-blue-500 to-green-500 h-3 rounded-full transition-all duration-500 ease-in-out"
+                                    style={{ width: `${volunteerProgress?.percentage || 0}%` }}
+                                ></div>
+                            </div>
+                            <p className="text-sm text-gray-600">
+                                {volunteerProgress?.completedSteps || 0} of {volunteerProgress?.totalSteps || 3} steps completed
+                            </p>
+                        </div>
+                    )}
+
+                    {user?.role === 'volunteer' && user?.volunteerStatus === 'approved' && (
+                        <div className="mb-6 p-4 bg-green-50 border border-green-100 rounded-lg">
+                            <div className="flex justify-between items-center">
+                                <h3 className="font-semibold text-green-800 flex items-center">
+                                    <FaChartBar className="mr-2" /> Volunteer Status: Authenticated
+                                </h3>
+                                <Link to="/volunteer-profile" className="text-green-600 hover:text-green-800 flex items-center">
+                                    View Profile <FaArrowRight className="ml-1 text-sm" />
+                                </Link>
+                            </div>
+                            <p className="text-sm text-green-700 mt-1">You are authenticated and ready to help in emergencies.</p>
+                        </div>
+                    )}
 
                     <div className="grid md:grid-cols-2 gap-4">
                         <div className="p-4 border rounded-lg">

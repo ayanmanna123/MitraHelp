@@ -7,9 +7,24 @@ const userSchema = new mongoose.Schema({
     },
     phone: {
         type: String,
-        required: [true, 'Phone number is required'],
         unique: true,
+        sparse: true, // Allow null/undefined to be unique (though we want one of phone/email)
         trim: true
+    },
+    email: {
+        type: String,
+        unique: true,
+        sparse: true,
+        trim: true,
+        lowercase: true
+    },
+    googleId: {
+        type: String,
+        unique: true,
+        sparse: true
+    },
+    profilePicture: {
+        type: String
     },
     role: {
         type: String,
@@ -46,7 +61,39 @@ const userSchema = new mongoose.Schema({
     blockedUsers: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
-    }]
+    }],
+    governmentIdImage: {
+        type: String // URL from S3
+    },
+    selfieImage: {
+        type: String // URL from S3
+    },
+    volunteerStatus: {
+        type: String,
+        enum: ['not_applied', 'pending', 'approved', 'rejected'],
+        default: 'not_applied'
+    },
+    rejectionReason: {
+        type: String
+    },
+    volunteerProgress: {
+        personalInfoComplete: {
+            type: Boolean,
+            default: false
+        },
+        documentsUploaded: {
+            type: Boolean,
+            default: false
+        },
+        verificationPending: {
+            type: Boolean,
+            default: false
+        },
+        profileCompletionSteps: {
+            type: [String],
+            default: ['personal_info', 'document_upload', 'verification']
+        }
+    }
 }, {
     timestamps: true
 });
