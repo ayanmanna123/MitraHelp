@@ -43,9 +43,9 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const verifyOtp = async (phone, otp) => {
+    const verifyOtp = async (phone, otp, role = 'user') => {
         try {
-            const { data } = await api.post('/auth/verify-otp', { phone, otp });
+            const { data } = await api.post('/auth/verify-otp', { phone, otp, role });
             if (data.success) {
                 localStorage.setItem('token', data.token);
                 setUser(data.user);

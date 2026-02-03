@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import CreateEmergency from './pages/CreateEmergency';
 import EmergencyTracking from './pages/EmergencyTracking';
 import VolunteerProfile from './pages/VolunteerProfile';
+import VolunteerSignup from './pages/VolunteerSignup';
 import { SocketProvider } from './context/SocketContext'; // Import SocketProvider
 
 // Protected Route Component
@@ -59,6 +60,11 @@ function App() {
               <Route path="/volunteer-profile" element={
                 <ProtectedRoute>
                   <VolunteerProfile />
+                </ProtectedRoute>
+              } />
+              <Route path="/volunteer-signup" element={
+                <ProtectedRoute>
+                  <VolunteerSignup />
                 </ProtectedRoute>
               } />
             </Routes>

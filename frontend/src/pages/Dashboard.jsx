@@ -49,6 +49,21 @@ const Dashboard = () => {
                         </span>
                     </div>
 
+                    {/* Volunteer Application Status */}
+                    {(user?.role === 'user' || user?.role === 'volunteer') && user?.volunteerStatus === 'not_applied' && (
+                        <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-lg">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="font-semibold text-blue-800">Become a Volunteer</h3>
+                                    <p className="text-blue-700 text-sm mt-1">Help your community by joining our volunteer network. Complete a quick verification process to get started.</p>
+                                </div>
+                                <Link to="/volunteer-signup" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+                                    Apply Now
+                                </Link>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Volunteer Progress Bar for Volunteers */}
                     {(user?.role === 'volunteer' || user?.role === 'user') && user?.volunteerStatus !== 'approved' && (
                         <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-lg">

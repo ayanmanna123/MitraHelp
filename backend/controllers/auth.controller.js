@@ -106,7 +106,7 @@ exports.googleLogin = async (req, res) => {
 // @access  Public
 exports.verifyOtp = async (req, res) => {
     try {
-        const { phone, otp } = req.body;
+        const { phone, otp, role = 'user' } = req.body; // Default to 'user' if not provided
 
         if (!phone || !otp) {
             return res.status(400).json({ success: false, message: 'Phone and OTP are required' });
@@ -127,9 +127,10 @@ exports.verifyOtp = async (req, res) => {
         let isNewUser = false;
 
         if (!user) {
-            // Register new user
+            // Register new user with selected role
             user = await User.create({
                 phone,
+                role: role, // Set the selected role
                 isVerified: true
             });
             isNewUser = true;
