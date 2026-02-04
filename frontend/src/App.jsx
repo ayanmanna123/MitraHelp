@@ -22,6 +22,7 @@ import VolunteerSignup from "./pages/VolunteerSignup";
 import AdminPanel from "./pages/AdminPanel";
 import NearbyEmergencies from "./pages/NearbyEmergencies";
 import { SocketProvider } from "./context/SocketContext";
+import Navbar from "./components/shared/Navbar";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -53,6 +54,7 @@ function App() {
           <Router>
             <div className="min-h-screen bg-gray-50 text-gray-900">
               <Toaster position="top-center" />
+              <Navbar />
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route
@@ -96,7 +98,7 @@ function App() {
                   }
                 />
                 <Route
-                  path="/volunteer/nearby"
+                  path="/emergencies/nearby"
                   element={
                     <ProtectedRoute>
                       <NearbyEmergencies />
@@ -120,7 +122,7 @@ function App() {
                   }
                 />
                 <Route
-                  path="/volunteer-profile"
+                  path="/volunteer/profile"
                   element={
                     <ProtectedRoute>
                       <VolunteerProfile />
@@ -128,7 +130,7 @@ function App() {
                   }
                 />
                 <Route
-                  path="/volunteer-signup"
+                  path="/volunteer/signup"
                   element={
                     <ProtectedRoute>
                       <VolunteerSignup />
