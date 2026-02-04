@@ -9,13 +9,16 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
+import UserDashboard from "./pages/UserDashboard";
+import VolunteerDashboard from "./pages/VolunteerDashboard";
+
 import Dashboard from "./pages/Dashboard";
 import CreateEmergency from "./pages/CreateEmergency";
 import EmergencyTracking from "./pages/EmergencyTracking";
 import VolunteerProfile from "./pages/VolunteerProfile";
 import VolunteerSignup from "./pages/VolunteerSignup";
 import AdminPanel from "./pages/AdminPanel";
-import { SocketProvider } from "./context/SocketContext"; // Import SocketProvider
+import { SocketProvider } from "./context/SocketContext";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -42,72 +45,88 @@ function App() {
     <GoogleOAuthProvider clientId={googleClientId}>
       <AuthProvider>
         <SocketProvider>
-        <Router>
-          <div className="min-h-screen bg-gray-50 text-gray-900">
-            <Toaster position="top-center" />
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route
-                path="/login"
-                element={
-                  <PublicRoute>
-                    <Login />
-                  </PublicRoute>
-                }
-              />
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <Dashboard />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/emergency/create"
-                element={
-                  <ProtectedRoute>
-                    <CreateEmergency />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/emergency/:id"
-                element={
-                  <ProtectedRoute>
-                    <EmergencyTracking />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/volunteer-profile"
-                element={
-                  <ProtectedRoute>
-                    <VolunteerProfile />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/volunteer-signup"
-                element={
-                  <ProtectedRoute>
-                    <VolunteerSignup />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin"
-                element={
-                  <ProtectedRoute>
-                    <AdminPanel />
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
-          </div>
-        </Router>
-      </SocketProvider>
-    </AuthProvider>
+          <Router>
+            <div className="min-h-screen bg-gray-50 text-gray-900">
+              <Toaster position="top-center" />
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route
+                  path="/login"
+                  element={
+                    <PublicRoute>
+                      <Login />
+                    </PublicRoute>
+                  }
+                />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/user-dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <UserDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/volunteer-dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <VolunteerDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/emergency/create"
+                  element={
+                    <ProtectedRoute>
+                      <CreateEmergency />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/emergency/:id"
+                  element={
+                    <ProtectedRoute>
+                      <EmergencyTracking />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/volunteer-profile"
+                  element={
+                    <ProtectedRoute>
+                      <VolunteerProfile />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/volunteer-signup"
+                  element={
+                    <ProtectedRoute>
+                      <VolunteerSignup />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin"
+                  element={
+                    <ProtectedRoute>
+                      <AdminPanel />
+                    </ProtectedRoute>
+                  }
+                />
+              </Routes>
+            </div>
+          </Router>
+        </SocketProvider>
+      </AuthProvider>
     </GoogleOAuthProvider>
   );
 }
