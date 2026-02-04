@@ -9,7 +9,7 @@ const Home = () => {
                 <h1 className="text-4xl md:text-6xl font-bold mb-4">MitraHelp</h1>
                 <p className="text-xl md:text-2xl mb-8">Emergency Volunteer & Assistance Platform</p>
                 <div className="flex justify-center gap-4">
-                    <Link to="/emergency/create" className="bg-white text-red-600 px-8 py-3 rounded-full font-bold shadow-lg hover:bg-gray-100 transition">
+                    <Link to="/user-dashboard" className="bg-white text-red-600 px-8 py-3 rounded-full font-bold shadow-lg hover:bg-gray-100 transition">
                         Request Help Now
                     </Link>
                     <Link to="/login" className="bg-transparent border-2 border-white text-white px-8 py-3 rounded-full font-bold hover:bg-white/10 transition">

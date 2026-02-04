@@ -51,7 +51,7 @@ const UserDashboard = () => {
                         </span>
                     </div>
 
-                    {/* Volunteer Application Status / Upsell */}
+                    {/* Volunteer Application Status / Upsell - Removed as requested */}
                     {user?.volunteerStatus === 'not_applied' && (
                         <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-lg">
                             <div className="flex items-center justify-between">

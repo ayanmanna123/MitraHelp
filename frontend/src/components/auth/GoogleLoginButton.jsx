@@ -1,18 +1,20 @@
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 
 const GoogleLoginButton = ({ text = "Continue with Google", className = "" }) => {
     const { googleLogin } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
 
     const handleSuccess = async (credentialResponse) => {
         try {
             if (credentialResponse.credential) {
                 const success = await googleLogin(credentialResponse.credential);
                 if (success) {
-                    navigate('/dashboard');
+                    const from = location.state?.from?.pathname || '/dashboard';
+                    navigate(from);
                 }
             } else {
                 toast.error("Google login failed: Try again.");
@@ -37,7 +39,7 @@ const GoogleLoginButton = ({ text = "Continue with Google", className = "" }) =>
                 theme="filled_blue"
                 shape="pill"
                 text="continue_with"
-                
+
                 width="300"
             />
         </div>

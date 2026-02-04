@@ -11,8 +11,8 @@ const calculateVolunteerProgress = (user) => {
         percentage: 0
     };
 
-    // Check if personal info is complete
-    if (user.name && user.phone && user.email) {
+    // Check if personal info is complete (require name and at least one contact method)
+    if (user.name && (user.phone || user.email)) {
         progress.personalInfoComplete = true;
         progress.completedSteps++;
     }
@@ -57,16 +57,19 @@ exports.registerVolunteer = async (req, res) => {
              return res.status(400).json({ success: false, message: 'You are already a volunteer.' });
         }
 
+        console.log('Register Volunteer - req.files:', req.files);
+        console.log('Register Volunteer - user before update:', user);
+
         let hasUpdates = false;
 
         // Check for uploaded files
         if (req.files) {
             if (req.files.governmentId && req.files.governmentId.length > 0) {
-                user.governmentIdImage = req.files.governmentId[0].location;
+                user.governmentIdImage = req.files.governmentId[0].location || req.files.governmentId[0].path;
                 hasUpdates = true;
             }
             if (req.files.selfie && req.files.selfie.length > 0) {
-                user.selfieImage = req.files.selfie[0].location;
+                user.selfieImage = req.files.selfie[0].location || req.files.selfie[0].path;
                 hasUpdates = true;
             }
         }
@@ -78,6 +81,7 @@ exports.registerVolunteer = async (req, res) => {
         // Check if both documents are now present
         if (user.governmentIdImage && user.selfieImage) {
             user.volunteerStatus = 'pending';
+            user.role = 'volunteer'; // Update user role to volunteer immediately
             user.rejectionReason = undefined; // Clear previous rejection reason if any
             
             // Update progress tracking

@@ -183,8 +183,8 @@ const calculateVolunteerProgress = (user) => {
         percentage: 0
     };
 
-    // Check if personal info is complete
-    if (user.name && user.phone && user.email) {
+    // Check if personal info is complete (require name and at least one contact method)
+    if (user.name && (user.phone || user.email)) {
         progress.personalInfoComplete = true;
         progress.completedSteps++;
     }
@@ -210,12 +210,12 @@ const calculateVolunteerProgress = (user) => {
     return progress;
 };
 
-// @desc    Update user profile (Name, Location, Role)
+// @desc    Update user profile (Name, Email, Location, Role)
 // @route   PUT /api/auth/profile
 // @access  Private
 exports.updateProfile = async (req, res) => {
     try {
-        const { name, role, latitude, longitude, isAvailable, bloodGroup, fcmToken } = req.body;
+        const { name, email, role, latitude, longitude, isAvailable, bloodGroup, fcmToken } = req.body;
 
         const user = await User.findById(req.user.id);
 
@@ -223,6 +223,10 @@ exports.updateProfile = async (req, res) => {
         
         if (name) {
             user.name = name;
+            profileChanged = true;
+        }
+        if (email) {
+            user.email = email;
             profileChanged = true;
         }
         if (role) user.role = role;
