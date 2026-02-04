@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import MapComponent from '../components/map/MapComponent';
 import api from '../services/api';
 import { useSocket } from '../context/SocketContext';
+import { useAuth } from '../context/AuthContext';
+import ChatBox from '../components/ChatBox';
 import { toast } from 'react-hot-toast';
 import { FaPhoneAlt, FaUserShield, FaAmbulance } from 'react-icons/fa';
 
@@ -10,7 +12,9 @@ const EmergencyTracking = () => {
     const { id } = useParams();
     const [emergency, setEmergency] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [volunteerLocation, setVolunteerLocation] = useState(null);
     const socket = useSocket();
+    const { user } = useAuth();
     const navigate = useNavigate();
 
     const fetchEmergency = async () => {
@@ -52,11 +56,49 @@ const EmergencyTracking = () => {
                             location: data.volunteerLocation
                         }
                     }));
+                    setVolunteerLocation(data.volunteerLocation?.coordinates);
                     toast.success(`${data.volunteer} accepted your request!`);
+                }
+            });
+
+            // Listen for live location updates
+            socket.on('remote_location_update', (data) => {
+                if (data.emergencyId === id && data.role === 'volunteer') {
+                    // Update volunteer location marker
+                    setVolunteerLocation([data.longitude, data.latitude]); // GeoJSON format [lng, lat]
                 }
             });
         }
     }, [socket, id]);
+
+    // Live Location Tracking
+    useEffect(() => {
+        if (!emergency || !socket || !user) return;
+
+        // If I am the assigned volunteer, broadcast my location
+        const isAssignedVolunteer = emergency.assignedVolunteer?._id === user._id ||
+            (emergency.assignedVolunteer && emergency.assignedVolunteer === user._id); // Check both populated and unpopulated ID
+
+        if (isAssignedVolunteer && emergency.status !== 'Completed') {
+            const watchId = navigator.geolocation.watchPosition(
+                (position) => {
+                    const { latitude, longitude, heading } = position.coords;
+                    socket.emit('location_update', {
+                        emergencyId: id,
+                        userId: user._id,
+                        role: 'volunteer',
+                        latitude,
+                        longitude,
+                        heading
+                    });
+                },
+                (err) => console.error(err),
+                { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+            );
+
+            return () => navigator.geolocation.clearWatch(watchId);
+        }
+    }, [emergency, socket, user, id]);
 
     if (loading) return <div className="p-8 text-center">Loading...</div>;
     if (!emergency) return <div className="p-8 text-center">Emergency not found</div>;
@@ -79,11 +121,12 @@ const EmergencyTracking = () => {
             popupText: 'Emergency Location'
         });
     }
-    // Volunteer Marker
-    if (emergency.assignedVolunteer?.location) {
+    // Volunteer Marker - Use live location if available, else static
+    const volLoc = volunteerLocation || emergency.assignedVolunteer?.location?.coordinates;
+    if (volLoc) {
         markers.push({
-            position: emergency.assignedVolunteer.location.coordinates.slice().reverse(),
-            popupText: `Volunteer: ${emergency.assignedVolunteer.name}`
+            position: [volLoc[1], volLoc[0]], // [lat, lng]
+            popupText: `Volunteer: ${emergency.assignedVolunteer?.name || 'Volunteer'}`
         });
     }
 
@@ -150,6 +193,10 @@ const EmergencyTracking = () => {
                                 "{emergency.description || 'No description provided'}"
                             </p>
                         </div>
+
+                        {/* Chat Box */}
+                        <ChatBox emergencyId={id} currentUser={user} />
+
                     </div>
                 </div>
             </div>

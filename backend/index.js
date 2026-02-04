@@ -63,10 +63,31 @@ io.on('connection', (socket) => {
     socket.on('join', (userId) => {
         if (userId) {
             socket.join(userId);
-            console.log(`User ${userId} joined room`);
+            console.log(`User ${userId} joined personal room`);
         }
     });
-    
+
+    // Join specific emergency room for chat & tracking
+    socket.on('join_emergency', (emergencyId) => {
+        if (emergencyId) {
+            socket.join(emergencyId);
+            console.log(`Socket ${socket.id} joined emergency room: ${emergencyId}`);
+        }
+    });
+
+    // Handle Chat Messages
+    socket.on('send_message', (data) => {
+        // data: { emergencyId, senderId, senderName, text, timestamp }
+        io.to(data.emergencyId).emit('receive_message', data);
+    });
+
+    // Handle Live Location Updates
+    socket.on('location_update', (data) => {
+        // data: { emergencyId, userId, role, latitude, longitude, heading }
+        // Broadcast to everyone in the room EXCEPT the sender
+        socket.to(data.emergencyId).emit('remote_location_update', data);
+    });
+
     socket.on('disconnect', () => {
         console.log('Client disconnected:', socket.id);
     });
