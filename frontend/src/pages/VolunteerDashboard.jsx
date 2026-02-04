@@ -78,8 +78,8 @@ const VolunteerDashboard = () => {
               <p className="text-gray-600">
                 {user?.location?.coordinates
                   ? `${user.location.coordinates[1].toFixed(
-                      4
-                    )}, ${user.location.coordinates[0].toFixed(4)}`
+                    4
+                  )}, ${user.location.coordinates[0].toFixed(4)}`
                   : "Location not set"}
               </p>
             </div>
@@ -104,7 +104,7 @@ const VolunteerDashboard = () => {
           </div>
 
           <Link
-            to="/volunteer/nearby"
+            to="/emergencies/nearby"
             className="bg-blue-50 border border-blue-100 p-6 rounded-xl hover:shadow-md transition cursor-pointer"
           >
             <h3 className="text-xl font-bold text-blue-800 mb-2">
