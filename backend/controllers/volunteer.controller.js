@@ -153,13 +153,35 @@ exports.registerVolunteerWithFaceVerification = async (req, res) => {
 
         // Check if both documents are now present
         if (user.governmentIdImage && user.selfieImage) {
-            // Set up face verification for this user
-            user.faceVerification = {
-                governmentIdImage: user.governmentIdImage,
-                selfieImage: user.selfieImage,
-                status: 'pending',
-                submittedAt: new Date()
-            };
+            // Handle face verification status appropriately
+            if (!user.faceVerification) {
+                // Initialize face verification if it doesn't exist
+                user.faceVerification = {
+                    governmentIdImage: user.governmentIdImage,
+                    selfieImage: user.selfieImage,
+                    status: 'pending',
+                    submittedAt: new Date()
+                };
+            } else {
+                // If face verification already exists, preserve the status if it has been processed
+                // Only update images, but keep the existing status ('verified', 'rejected')
+                // Only update the status to 'pending' if it was never processed (e.g., was 'not_submitted')
+                const currentStatus = user.faceVerification.status;
+                
+                user.faceVerification.governmentIdImage = user.governmentIdImage;
+                user.faceVerification.selfieImage = user.selfieImage;
+                
+                // Only update status to 'pending' if it was never processed
+                // If status is already 'verified' or 'rejected', preserve it
+                if (['not_submitted', undefined, null].includes(currentStatus)) {
+                    user.faceVerification.status = 'pending';
+                    user.faceVerification.submittedAt = new Date();
+                } else if (currentStatus === 'pending') {
+                    // If status was pending, update the submittedAt timestamp
+                    user.faceVerification.submittedAt = new Date();
+                }
+                // For 'verified' or 'rejected' statuses, we preserve them
+            }
             
             user.volunteerStatus = 'pending';
             user.role = 'volunteer'; // Update user role to volunteer immediately
