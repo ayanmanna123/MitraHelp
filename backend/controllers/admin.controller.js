@@ -29,6 +29,35 @@ exports.getVolunteers = async (req, res) => {
     }
 };
 
+// @desc    Get volunteer applications with detailed information including face verification
+// @route   GET /api/admin/volunteers/details
+// @access  Private (Admin)
+exports.getVolunteersWithDetails = async (req, res) => {
+    try {
+        // Check if user is admin
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Access denied. Admin only.' });
+        }
+
+        const volunteers = await User.find({ 
+            role: { $in: ['user', 'volunteer'] },
+            $or: [
+                { volunteerStatus: { $in: ['pending', 'approved', 'rejected'] }},
+                { 'faceVerification.status': { $in: ['pending', 'verified', 'rejected'] }}
+            ]
+        }).select('name phone email volunteerStatus governmentIdImage selfieImage rejectionReason createdAt faceVerification');
+
+        res.status(200).json({
+            success: true,
+            data: volunteers
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    }
+};
+
 // @desc    Approve volunteer application
 // @route   POST /api/admin/volunteers/:id/approve
 // @access  Private (Admin)

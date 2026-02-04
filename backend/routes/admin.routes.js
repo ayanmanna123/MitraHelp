@@ -1,5 +1,5 @@
 const express = require('express');
-const { getVolunteers, approveVolunteer, rejectVolunteer, getFaceVerifications, updateFaceVerificationStatus } = require('../controllers/admin.controller');
+const { getVolunteers, approveVolunteer, rejectVolunteer, getFaceVerifications, updateFaceVerificationStatus, getVolunteersWithDetails } = require('../controllers/admin.controller');
 const { protect, admin } = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -10,6 +10,7 @@ router.use(protect);
 router.use(admin);
 
 router.get('/volunteers', getVolunteers);
+router.get('/volunteers/details', getVolunteersWithDetails);
 router.post('/volunteers/:id/approve', approveVolunteer);
 router.post('/volunteers/:id/reject', rejectVolunteer);
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -26,6 +26,32 @@ const VolunteerSignup = () => {
         governmentId: false,
         selfie: false
     });
+    const [faceVerificationStatus, setFaceVerificationStatus] = useState(null);
+    const [isProcessingFaceVerification, setIsProcessingFaceVerification] = useState(false);
+    const [canProceedToStep3, setCanProceedToStep3] = useState(false); // Track if user can proceed to step 3
+    
+    // Add state for image previews
+    const [imagePreviews, setImagePreviews] = useState({
+        governmentId: null,
+        selfie: null
+    });
+    
+    // Camera functionality for taking selfies
+    const videoRef = useRef(null);
+    const canvasRef = useRef(null);
+    const [isCameraActive, setIsCameraActive] = useState(false);
+    
+    // Cleanup object URLs when component unmounts
+    useEffect(() => {
+        return () => {
+            if (imagePreviews.governmentId) {
+                URL.revokeObjectURL(imagePreviews.governmentId);
+            }
+            if (imagePreviews.selfie) {
+                URL.revokeObjectURL(imagePreviews.selfie);
+            }
+        };
+    }, []);
 
     const handleInputChange = (e) => {
         setFormData(prev => ({
@@ -81,10 +107,160 @@ const VolunteerSignup = () => {
     const handleFileChange = (e, type) => {
         const file = e.target.files[0];
         if (file) {
+            // Create preview URL for the uploaded image
+            const previewUrl = URL.createObjectURL(file);
+            
             setFormData(prev => ({
                 ...prev,
                 [type]: file
             }));
+            
+            setImagePreviews(prev => ({
+                ...prev,
+                [type]: previewUrl
+            }));
+            
+            // If both images are uploaded, trigger face verification
+            if ((type === 'governmentId' && formData.selfie) || 
+                (type === 'selfie' && formData.governmentId)) {
+                triggerFaceVerification(file, type);
+            }
+        }
+    };
+    
+    // Function to trigger face verification when both images are available
+    const triggerFaceVerification = async (uploadedFile, uploadedType) => {
+        // Determine which file is which based on what's available
+        let governmentIdFile, selfieFile;
+        
+        if (uploadedType === 'governmentId') {
+            governmentIdFile = uploadedFile;
+            selfieFile = formData.selfie;
+        } else {
+            selfieFile = uploadedFile;
+            governmentIdFile = formData.governmentId;
+        }
+        
+        if (governmentIdFile && selfieFile) {
+            await performFaceVerification(governmentIdFile, selfieFile);
+        }
+    };
+    
+    // Function to perform face verification
+    const performFaceVerification = async (govIdFile, selfieFile) => {
+        setIsProcessingFaceVerification(true);
+        setFaceVerificationStatus(null);
+        
+        try {
+            const formData = new FormData();
+            formData.append('governmentId', govIdFile);
+            formData.append('selfie', selfieFile);
+            
+            // Upload images for face verification
+            const uploadResponse = await api.post('/face-verification/upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            
+            // Process face verification
+            const processResponse = await api.post('/face-verification/process', {
+                verificationId: uploadResponse.data.data.verificationId
+            });
+            
+            const { matchScore, isVerified } = processResponse.data.data;
+            
+            setFaceVerificationStatus({
+                isVerified,
+                matchScore,
+                timestamp: new Date()
+            });
+            
+            // If verification is successful, allow proceeding to step 3
+            if (isVerified) {
+                setCanProceedToStep3(true);
+            } else {
+                setCanProceedToStep3(false);
+            }
+            
+        } catch (error) {
+            console.error('Face verification failed:', error);
+            setFaceVerificationStatus({
+                isVerified: false,
+                matchScore: 0,
+                error: error.response?.data?.message || 'Face verification failed',
+                timestamp: new Date()
+            });
+            setCanProceedToStep3(false);
+        } finally {
+            setIsProcessingFaceVerification(false);
+        }
+    };
+    
+    // Function to activate camera for selfie capture
+    const activateCamera = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: 'user' } 
+            });
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                setIsCameraActive(true);
+            }
+        } catch (err) {
+            console.error('Error accessing camera:', err);
+            alert('Could not access the camera. Please make sure you have granted permission.');
+        }
+    };
+    
+    // Function to capture selfie from camera
+    const captureSelfie = () => {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        
+        if (video && canvas) {
+            const context = canvas.getContext('2d');
+            
+            // Set canvas dimensions to match video
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            // Draw video frame to canvas
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Convert canvas to blob
+            canvas.toBlob((blob) => {
+                if (blob) {
+                    // Create a file from the blob
+                    const capturedFile = new File([blob], `selfie-${Date.now()}.jpg`, { type: 'image/jpeg' });
+                    
+                    // Create preview URL
+                    const previewUrl = URL.createObjectURL(capturedFile);
+                    
+                    // Update form data and previews
+                    setFormData(prev => ({
+                        ...prev,
+                        selfie: capturedFile
+                    }));
+                    
+                    setImagePreviews(prev => ({
+                        ...prev,
+                        selfie: previewUrl
+                    }));
+                    
+                    // Stop camera stream
+                    const stream = video.srcObject;
+                    if (stream) {
+                        const tracks = stream.getTracks();
+                        tracks.forEach(track => track.stop());
+                    }
+                    
+                    setIsCameraActive(false);
+                    
+                    // If government ID is already uploaded, trigger face verification
+                    if (formData.governmentId) {
+                        performFaceVerification(formData.governmentId, capturedFile);
+                    }
+                }
+            }, 'image/jpeg', 0.8); // 80% quality
         }
     };
 
@@ -121,7 +297,7 @@ const VolunteerSignup = () => {
                 console.log('Profile update response:', profileResponse.data);
             }
 
-            // Upload documents
+            // Upload documents for volunteer registration with face verification
             if (formData.governmentId || formData.selfie) {
                 const uploadFormData = new FormData();
 
@@ -133,10 +309,11 @@ const VolunteerSignup = () => {
                     uploadFormData.append('selfie', formData.selfie);
                 }
 
-                const registerResponse = await api.post('/volunteer/register', uploadFormData, {
+                // Use the new endpoint that handles both face verification and volunteer registration
+                const registerResponse = await api.post('/volunteer/register-with-face-verification', uploadFormData, {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
-                console.log('Register response:', registerResponse.data);
+                console.log('Register response with face verification:', registerResponse.data);
             }
 
             // Navigate to dashboard
@@ -251,7 +428,7 @@ const VolunteerSignup = () => {
             </div>
         );
     };
-    const isStep2Valid = formData.governmentId && formData.selfie;
+    const isStep2Valid = formData.governmentId && formData.selfie && canProceedToStep3;
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -433,18 +610,46 @@ const VolunteerSignup = () => {
                                                 accept="image/*"
                                                 onChange={(e) => handleFileChange(e, 'governmentId')}
                                                 className="mb-3 w-full"
+                                                id="government-id-upload"
                                             />
-                                            <button
-                                                onClick={() => document.querySelector('input[type="file"]').click()}
-                                                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-                                            >
-                                                Select File
-                                            </button>
+                                            <label htmlFor="government-id-upload" className="cursor-pointer">
+                                                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                                                    <div className="flex flex-col items-center justify-center">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                                        </svg>
+                                                        <span className="mt-2 text-sm font-medium text-gray-600">Click to upload</span>
+                                                        <span className="text-xs text-gray-500">JPG, PNG (Max 5MB)</span>
+                                                    </div>
+                                                </div>
+                                            </label>
                                         </div>
                                     ) : (
-                                        <div className="text-center">
-                                            <FaShieldAlt className="text-green-500 text-2xl mx-auto mb-2" />
-                                            <p className="text-green-600 font-medium">Selected</p>
+                                        <div className="relative">
+                                            <img
+                                                src={imagePreviews.governmentId}
+                                                alt="Government ID Preview"
+                                                className="w-full h-48 object-contain rounded border"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (imagePreviews.governmentId) {
+                                                        URL.revokeObjectURL(imagePreviews.governmentId);
+                                                    }
+                                                    setFormData(prev => ({
+                                                        ...prev,
+                                                        governmentId: null
+                                                    }));
+                                                    setImagePreviews(prev => ({
+                                                        ...prev,
+                                                        governmentId: null
+                                                    }));
+                                                }}
+                                                className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-700"
+                                            >
+                                                ✕
+                                            </button>
                                         </div>
                                     )}
                                 </div>
@@ -466,27 +671,130 @@ const VolunteerSignup = () => {
                                                 accept="image/*"
                                                 onChange={(e) => handleFileChange(e, 'selfie')}
                                                 className="mb-3 w-full"
+                                                id="selfie-upload"
                                             />
+                                            <label htmlFor="selfie-upload" className="cursor-pointer">
+                                                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                                                    <div className="flex flex-col items-center justify-center">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                                        </svg>
+                                                        <span className="mt-2 text-sm font-medium text-gray-600">Upload selfie</span>
+                                                    </div>
+                                                </div>
+                                            </label>
+
                                             <button
-                                                onClick={() => {
-                                                    const inputs = document.querySelectorAll('input[type="file"]');
-                                                    inputs[1].click();
-                                                }}
-                                                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                                                type="button"
+                                                onClick={activateCamera}
+                                                className="mt-3 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded text-sm w-full"
                                             >
-                                                Select File
+                                                Take Selfie with Camera
                                             </button>
+
+                                            {/* Hidden video and canvas for camera capture */}
+                                            <video
+                                                ref={videoRef}
+                                                autoPlay
+                                                playsInline
+                                                muted
+                                                style={{ width: '100%', maxHeight: '200px', display: isCameraActive ? 'block' : 'none' }}
+                                            />
+                                            <canvas ref={canvasRef} style={{ display: 'none' }} />
+                                            {isCameraActive && (
+                                                <div className="mt-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={captureSelfie}
+                                                        className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded text-sm w-full"
+                                                    >
+                                                        Capture Selfie
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const stream = videoRef.current?.srcObject;
+                                                            if (stream) {
+                                                                const tracks = stream.getTracks();
+                                                                tracks.forEach(track => track.stop());
+                                                            }
+                                                            setIsCameraActive(false);
+                                                        }}
+                                                        className="mt-2 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded text-sm w-full"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     ) : (
-                                        <div className="text-center">
-                                            <FaUser className="text-green-500 text-2xl mx-auto mb-2" />
-                                            <p className="text-green-600 font-medium">Selected</p>
+                                        <div className="relative">
+                                            <img
+                                                src={imagePreviews.selfie}
+                                                alt="Selfie Preview"
+                                                className="w-full h-48 object-contain rounded border"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (imagePreviews.selfie) {
+                                                        URL.revokeObjectURL(imagePreviews.selfie);
+                                                    }
+                                                    setFormData(prev => ({
+                                                        ...prev,
+                                                        selfie: null
+                                                    }));
+                                                    setImagePreviews(prev => ({
+                                                        ...prev,
+                                                        selfie: null
+                                                    }));
+                                                }}
+                                                className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-700"
+                                            >
+                                                ✕
+                                            </button>
                                         </div>
                                     )}
                                 </div>
                             </div>
                         </div>
 
+                        {/* Face Verification Status */}
+                        {isProcessingFaceVerification && (
+                            <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg mb-4">
+                                <div className="flex items-center">
+                                    <div className="mr-3">
+                                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-700"></div>
+                                    </div>
+                                    <div>
+                                        <h3 className="font-medium text-blue-800">Processing Face Verification</h3>
+                                        <p className="text-sm text-blue-700 mt-1">
+                                            Verifying your identity with AI. This may take 10-20 seconds...
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {faceVerificationStatus && (
+                            <div className={`p-4 border rounded-lg mb-4 ${faceVerificationStatus.isVerified ? 'bg-green-50 border-green-100 text-green-800' : 'bg-red-50 border-red-100 text-red-800'}`}>
+                                <div className="flex items-start">
+                                    <FaShieldAlt className={`text-xl mt-0.5 mr-3 ${faceVerificationStatus.isVerified ? 'text-green-500' : 'text-red-500'}`} />
+                                    <div>
+                                        <h3 className="font-medium">
+                                            {faceVerificationStatus.isVerified ? 'Identity Verified!' : 'Verification Failed'}
+                                        </h3>
+                                        <p className="text-sm mt-1">
+                                            Match Score: {(faceVerificationStatus.matchScore * 100).toFixed(2)}%
+                                        </p>
+                                        {faceVerificationStatus.error && (
+                                            <p className="text-sm mt-1">Error: {faceVerificationStatus.error}</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        
                         <div className="flex justify-between mt-6">
                             <button
                                 onClick={handleBack}

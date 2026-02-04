@@ -111,6 +111,88 @@ exports.registerVolunteer = async (req, res) => {
     }
 };
 
+// @desc    Register as a volunteer with face verification
+// @route   POST /api/volunteer/register-with-face-verification
+// @access  Private (User)
+exports.registerVolunteerWithFaceVerification = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        if (user.volunteerStatus === 'pending') {
+             return res.status(400).json({ success: false, message: 'Application already pending.' });
+        }
+        
+        if (user.volunteerStatus === 'approved') {
+             return res.status(400).json({ success: false, message: 'You are already a volunteer.' });
+        }
+
+        console.log('Register Volunteer with Face Verification - req.files:', req.files);
+        console.log('Register Volunteer with Face Verification - user before update:', user);
+
+        let hasUpdates = false;
+
+        // Check for uploaded files
+        if (req.files) {
+            if (req.files.governmentId && req.files.governmentId.length > 0) {
+                user.governmentIdImage = req.files.governmentId[0].location || req.files.governmentId[0].path;
+                hasUpdates = true;
+            }
+            if (req.files.selfie && req.files.selfie.length > 0) {
+                user.selfieImage = req.files.selfie[0].location || req.files.selfie[0].path;
+                hasUpdates = true;
+            }
+        }
+
+        if (!hasUpdates) {
+             return res.status(400).json({ success: false, message: 'No documents uploaded.' });
+        }
+
+        // Check if both documents are now present
+        if (user.governmentIdImage && user.selfieImage) {
+            // Set up face verification for this user
+            user.faceVerification = {
+                governmentIdImage: user.governmentIdImage,
+                selfieImage: user.selfieImage,
+                status: 'pending',
+                submittedAt: new Date()
+            };
+            
+            user.volunteerStatus = 'pending';
+            user.role = 'volunteer'; // Update user role to volunteer immediately
+            user.rejectionReason = undefined; // Clear previous rejection reason if any
+            
+            // Update progress tracking
+            user.volunteerProgress.documentsUploaded = true;
+            user.volunteerProgress.verificationPending = true;
+        }
+
+        await user.save();
+
+        // Calculate progress after saving
+        const progress = calculateVolunteerProgress(user);
+
+        res.status(200).json({
+            success: true,
+            message: user.volunteerStatus === 'pending' ? 'Volunteer application submitted with face verification successfully' : 'Document uploaded successfully',
+            data: {
+                volunteerStatus: user.volunteerStatus,
+                governmentIdImage: user.governmentIdImage,
+                selfieImage: user.selfieImage,
+                faceVerification: user.faceVerification,
+                progress: progress
+            }
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    }
+};
+
 // @desc    Get volunteer status
 // @route   GET /api/volunteer/status
 // @access  Private

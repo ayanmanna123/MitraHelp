@@ -241,9 +241,9 @@ const AdminPanel = () => {
                                                             href={volunteer.governmentIdImage} 
                                                             target="_blank" 
                                                             rel="noopener noreferrer"
-                                                            className="text-blue-600 hover:text-blue-800 block"
+                                                            className="text-blue-600 hover:text-blue-800 block flex items-center"
                                                         >
-                                                            View ID
+                                                            <FaIdCard className="mr-1" /> View ID
                                                         </a>
                                                     )}
                                                     {volunteer.selfieImage && (
@@ -251,10 +251,23 @@ const AdminPanel = () => {
                                                             href={volunteer.selfieImage} 
                                                             target="_blank" 
                                                             rel="noopener noreferrer"
-                                                            className="text-blue-600 hover:text-blue-800 block"
+                                                            className="text-blue-600 hover:text-blue-800 block flex items-center"
                                                         >
-                                                            View Selfie
+                                                            <FaCamera className="mr-1" /> View Selfie
                                                         </a>
+                                                    )}
+                                                    {volunteer.faceVerification && (
+                                                        <div className="mt-1">
+                                                            <span className={`px-2 py-1 text-xs leading-5 font-semibold rounded-full inline-block ${
+                                                                volunteer.faceVerification.status === 'verified' 
+                                                                    ? 'bg-green-100 text-green-800' 
+                                                                    : volunteer.faceVerification.status === 'pending' 
+                                                                        ? 'bg-yellow-100 text-yellow-800' 
+                                                                        : 'bg-red-100 text-red-800'
+                                                            }`}>
+                                                                Face: {volunteer.faceVerification.status?.toUpperCase()}
+                                                            </span>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </td>
