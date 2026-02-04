@@ -266,3 +266,48 @@ exports.getNearbyEmergencies = async (req, res) => {
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
+
+// @desc    Get emergencies assigned to the volunteer
+// @route   GET /api/emergency/assigned
+// @access  Private (Volunteer)
+exports.getAssignedEmergencies = async (req, res) => {
+    try {
+        // Find emergencies where this user is the assigned volunteer
+        // Sort by updatedAt desc to get the most recent activity
+        const emergencies = await Emergency.find({
+            assignedVolunteer: req.user.id,
+            status: { $in: ['Accepted', 'On The Way'] } // Only active ones primarily
+        })
+            .populate('requester', 'name phone')
+            .sort({ updatedAt: -1 });
+
+        // If no active, maybe fetch the last completed one?
+        // For now, let's just return what we found. 
+        // If the user wants history, we can remove the status filter or make it optional.
+        // The requirement says "resent accept emergency", imply current or just finished.
+        // Let's widen the filter to include 'Completed' but limit to 1 for the profile view if we just want "the recent one".
+
+        // Actually, let's fetch ALL assigned, sorted by date, and let frontend pick the first one.
+        // Or better, just return the most recent one to save bandwidth if that's all needed.
+        // But maybe user wants a list? User said "show resent accept emergency" (singular/plural ambiguous). 
+        // "if user click vew more show same map chat section" implies a specific one.
+
+        const recentEmergency = await Emergency.findOne({
+            assignedVolunteer: req.user.id
+        })
+            .populate('requester', 'name phone')
+            .sort({ updatedAt: -1 });
+
+        if (!recentEmergency) {
+            return res.status(200).json({ success: true, data: null });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: recentEmergency
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};

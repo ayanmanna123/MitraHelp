@@ -100,6 +100,15 @@ const EmergencyTracking = () => {
         }
     }, [emergency, socket, user, id]);
 
+    // Ensure both parties join the chat room when emergency is accepted
+    useEffect(() => {
+        if (socket && emergency && emergency.status === 'Accepted') {
+            // Both requester and assigned volunteer should join the chat room
+            socket.emit('join_emergency', id);
+            console.log('Joined emergency chat room:', id);
+        }
+    }, [socket, emergency, id]);
+
     if (loading) return <div className="p-8 text-center">Loading...</div>;
     if (!emergency) return <div className="p-8 text-center">Emergency not found</div>;
 

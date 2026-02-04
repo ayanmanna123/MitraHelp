@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { FaMapMarkerAlt, FaPhone, FaArrowLeft, FaExclamationTriangle } from 'react-icons/fa';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const NearbyEmergencies = () => {
     const { user } = useAuth();
@@ -10,6 +10,7 @@ const NearbyEmergencies = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [location, setLocation] = useState(null);
+    const navigate = useNavigate();
 
     useEffect(() => {
         // Get current location first
@@ -56,12 +57,8 @@ const NearbyEmergencies = () => {
     const handleAccept = async (id) => {
         try {
             await api.put(`/emergency/${id}/accept`);
-            // Refresh list or navigate to tracker
-            alert('Emergency accepted! Redirecting to tracker...');
-            // In a real app, navigate to a tracking page
-            // navigate(`/emergency/${id}`);
-            // For now, remove from list to reflect change
-            setEmergencies(prev => prev.filter(e => e._id !== id));
+            // Navigate to emergency tracking page where chat is available
+            navigate(`/emergency/${id}`);
         } catch (err) {
             console.error(err);
             alert(err.response?.data?.message || 'Failed to accept emergency');

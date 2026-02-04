@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { FaUser, FaCheckCircle, FaTimesCircle, FaClock, FaUpload, FaShieldAlt } from 'react-icons/fa';
+import { FaUser, FaCheckCircle, FaTimesCircle, FaClock, FaUpload, FaShieldAlt, FaAmbulance, FaExternalLinkAlt } from 'react-icons/fa';
+import { Link } from 'react-router-dom';
 
 const VolunteerProfile = () => {
     const { user } = useAuth();
@@ -15,6 +16,7 @@ const VolunteerProfile = () => {
         governmentId: false,
         selfie: false
     });
+    const [recentEmergency, setRecentEmergency] = useState(null);
 
     useEffect(() => {
         const fetchVolunteerProgress = async () => {
@@ -22,7 +24,7 @@ const VolunteerProfile = () => {
                 const response = await api.get('/volunteer/progress');
                 if (response.data.success) {
                     setProgressData(response.data.data);
-                    
+
                     // Update upload status based on document availability
                     setUploadStatus(prev => ({
                         ...prev,
@@ -36,8 +38,22 @@ const VolunteerProfile = () => {
                 setLoading(false);
             }
         };
-        
+
+        const fetchRecentEmergency = async () => {
+            if (user?.role === 'volunteer') { // Only fetch if volunteer
+                try {
+                    const response = await api.get('/emergency/assigned');
+                    if (response.data.success && response.data.data) {
+                        setRecentEmergency(response.data.data);
+                    }
+                } catch (error) {
+                    console.error('Error fetching recent emergency:', error);
+                }
+            }
+        };
+
         fetchVolunteerProgress();
+        fetchRecentEmergency();
     }, [user]);
 
     const handleFileChange = (e, type) => {
@@ -68,13 +84,13 @@ const VolunteerProfile = () => {
                     ...prev,
                     [type]: true
                 }));
-                
+
                 // Refresh progress data
                 try {
                     const progressResponse = await api.get('/volunteer/progress');
                     if (progressResponse.data.success) {
                         setProgressData(progressResponse.data.data);
-                        
+
                         // Update upload status based on document availability
                         setUploadStatus(prev => ({
                             ...prev,
@@ -85,16 +101,16 @@ const VolunteerProfile = () => {
                 } catch (progressError) {
                     console.error('Error fetching updated progress:', progressError);
                 }
-                
+
                 // If user status changed to approved, refresh user data
-                if (response.data.data?.progress?.verificationPending && 
+                if (response.data.data?.progress?.verificationPending &&
                     (user?.volunteerStatus === 'pending' || user?.volunteerStatus === 'not_applied')) {
                     // Refresh the user data in auth context to update role
                     setTimeout(() => {
                         window.location.reload(); // Simple way to refresh everything
                     }, 1000); // Wait a bit for server to process
                 }
-                
+
                 alert(response.data.message);
             }
         } catch (error) {
@@ -118,9 +134,39 @@ const VolunteerProfile = () => {
         <div className="min-h-screen bg-gray-50">
             <nav className="bg-white shadow-sm p-4 flex justify-between items-center">
                 <h1 className="text-xl font-bold text-red-600">Volunteer Profile</h1>
+                <Link to="/volunteer-dashboard" className="text-gray-600 hover:text-red-500 font-medium text-sm">
+                    Back to Dashboard
+                </Link>
             </nav>
 
             <main className="container mx-auto px-4 py-8">
+                {/* Active/Recent Emergency Card */}
+                {recentEmergency && (
+                    <div className="bg-white rounded-xl shadow p-6 mb-8 border-l-4 border-red-500">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                    <FaAmbulance className="text-red-600" />
+                                    {recentEmergency.status === 'Completed' ? 'Recent Emergency' : 'Active Emergency'}
+                                </h2>
+                                <p className="text-gray-600 mt-1">
+                                    <span className="font-semibold">{recentEmergency.type}</span> request from {recentEmergency.requester?.name || 'User'}
+                                </p>
+                                <p className="text-sm text-gray-400 mt-1">
+                                    Status: <span className={`font-semibold ${recentEmergency.status === 'Completed' ? 'text-green-600' : 'text-blue-600'
+                                        }`}>{recentEmergency.status}</span> • {new Date(recentEmergency.updatedAt).toLocaleDateString()}
+                                </p>
+                            </div>
+                            <Link
+                                to={`/emergency/${recentEmergency._id}`}
+                                className="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center gap-2 font-medium"
+                            >
+                                View Details <FaExternalLinkAlt size={14} />
+                            </Link>
+                        </div>
+                    </div>
+                )}
+
                 {/* Progress Overview */}
                 <div className="bg-white rounded-xl shadow p-6 mb-8">
                     <div className="flex items-center justify-between mb-6">
@@ -133,7 +179,7 @@ const VolunteerProfile = () => {
                     {/* Progress Bar */}
                     <div className="mb-6">
                         <div className="w-full bg-gray-200 rounded-full h-4">
-                            <div 
+                            <div
                                 className="bg-gradient-to-r from-blue-500 to-green-500 h-4 rounded-full transition-all duration-500 ease-in-out"
                                 style={{ width: `${progressData?.percentage}%` }}
                             ></div>
@@ -145,12 +191,10 @@ const VolunteerProfile = () => {
 
                     {/* Progress Steps */}
                     <div className="space-y-4">
-                        <div className={`flex items-center p-4 rounded-lg border ${
-                            progressData?.personalInfoComplete ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'
-                        }`}>
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-4 ${
-                                progressData?.personalInfoComplete ? 'bg-green-500' : 'bg-gray-300'
+                        <div className={`flex items-center p-4 rounded-lg border ${progressData?.personalInfoComplete ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'
                             }`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-4 ${progressData?.personalInfoComplete ? 'bg-green-500' : 'bg-gray-300'
+                                }`}>
                                 {progressData?.personalInfoComplete ? (
                                     <FaCheckCircle className="text-white" />
                                 ) : (
@@ -170,12 +214,10 @@ const VolunteerProfile = () => {
                             </div>
                         </div>
 
-                        <div className={`flex items-center p-4 rounded-lg border ${
-                            progressData?.documentsUploaded ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'
-                        }`}>
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-4 ${
-                                progressData?.documentsUploaded ? 'bg-green-500' : 'bg-gray-300'
+                        <div className={`flex items-center p-4 rounded-lg border ${progressData?.documentsUploaded ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'
                             }`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-4 ${progressData?.documentsUploaded ? 'bg-green-500' : 'bg-gray-300'
+                                }`}>
                                 {progressData?.documentsUploaded ? (
                                     <FaCheckCircle className="text-white" />
                                 ) : (
@@ -195,12 +237,10 @@ const VolunteerProfile = () => {
                             </div>
                         </div>
 
-                        <div className={`flex items-center p-4 rounded-lg border ${
-                            progressData?.verificationPending ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'
-                        }`}>
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-4 ${
-                                progressData?.verificationPending ? 'bg-green-500' : 'bg-gray-300'
+                        <div className={`flex items-center p-4 rounded-lg border ${progressData?.verificationPending ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'
                             }`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-4 ${progressData?.verificationPending ? 'bg-green-500' : 'bg-gray-300'
+                                }`}>
                                 {progressData?.verificationPending ? (
                                     <FaCheckCircle className="text-white" />
                                 ) : (
@@ -210,9 +250,9 @@ const VolunteerProfile = () => {
                             <div className="flex-1">
                                 <h3 className="font-semibold">Verification Process</h3>
                                 <p className="text-sm text-gray-600">
-                                    {user?.volunteerStatus === 'approved' 
-                                        ? 'Verification completed - You are authenticated!' 
-                                        : user?.volunteerStatus === 'pending' 
+                                    {user?.volunteerStatus === 'approved'
+                                        ? 'Verification completed - You are authenticated!'
+                                        : user?.volunteerStatus === 'pending'
                                             ? 'Under review by administrators'
                                             : 'Awaiting document submission'}
                                 </p>
@@ -233,21 +273,19 @@ const VolunteerProfile = () => {
                 {/* Document Upload Section */}
                 <div className="bg-white rounded-xl shadow p-6">
                     <h2 className="text-xl font-bold text-gray-800 mb-6">Upload Documents</h2>
-                    
+
                     <div className="grid md:grid-cols-2 gap-6">
                         {/* Government ID Upload */}
-                        <div className={`border-2 border-dashed rounded-lg p-6 text-center ${
-                            uploadStatus.governmentId ? 'border-green-300 bg-green-50' : 'border-gray-300'
-                        }`}>
+                        <div className={`border-2 border-dashed rounded-lg p-6 text-center ${uploadStatus.governmentId ? 'border-green-300 bg-green-50' : 'border-gray-300'
+                            }`}>
                             <div className="flex flex-col items-center">
-                                <FaShieldAlt className={`text-3xl mb-3 ${
-                                    uploadStatus.governmentId ? 'text-green-500' : 'text-gray-400'
-                                }`} />
+                                <FaShieldAlt className={`text-3xl mb-3 ${uploadStatus.governmentId ? 'text-green-500' : 'text-gray-400'
+                                    }`} />
                                 <h3 className="font-semibold mb-2">Government ID</h3>
                                 <p className="text-sm text-gray-600 mb-4">
                                     Upload a clear photo of your government-issued ID
                                 </p>
-                                
+
                                 {!uploadStatus.governmentId ? (
                                     <>
                                         <input
@@ -259,11 +297,10 @@ const VolunteerProfile = () => {
                                         <button
                                             onClick={() => handleUpload('governmentId')}
                                             disabled={!documents.governmentId}
-                                            className={`px-4 py-2 rounded-lg font-medium ${
-                                                documents.governmentId
+                                            className={`px-4 py-2 rounded-lg font-medium ${documents.governmentId
                                                     ? 'bg-blue-600 text-white hover:bg-blue-700'
                                                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                            }`}
+                                                }`}
                                         >
                                             Upload ID
                                         </button>
@@ -278,18 +315,16 @@ const VolunteerProfile = () => {
                         </div>
 
                         {/* Selfie Upload */}
-                        <div className={`border-2 border-dashed rounded-lg p-6 text-center ${
-                            uploadStatus.selfie ? 'border-green-300 bg-green-50' : 'border-gray-300'
-                        }`}>
+                        <div className={`border-2 border-dashed rounded-lg p-6 text-center ${uploadStatus.selfie ? 'border-green-300 bg-green-50' : 'border-gray-300'
+                            }`}>
                             <div className="flex flex-col items-center">
-                                <FaUser className={`text-3xl mb-3 ${
-                                    uploadStatus.selfie ? 'text-green-500' : 'text-gray-400'
-                                }`} />
+                                <FaUser className={`text-3xl mb-3 ${uploadStatus.selfie ? 'text-green-500' : 'text-gray-400'
+                                    }`} />
                                 <h3 className="font-semibold mb-2">Selfie Verification</h3>
                                 <p className="text-sm text-gray-600 mb-4">
                                     Upload a clear selfie holding your ID
                                 </p>
-                                
+
                                 {!uploadStatus.selfie ? (
                                     <>
                                         <input
@@ -301,11 +336,10 @@ const VolunteerProfile = () => {
                                         <button
                                             onClick={() => handleUpload('selfie')}
                                             disabled={!documents.selfie}
-                                            className={`px-4 py-2 rounded-lg font-medium ${
-                                                documents.selfie
+                                            className={`px-4 py-2 rounded-lg font-medium ${documents.selfie
                                                     ? 'bg-blue-600 text-white hover:bg-blue-700'
                                                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                            }`}
+                                                }`}
                                         >
                                             Upload Selfie
                                         </button>

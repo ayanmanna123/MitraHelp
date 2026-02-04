@@ -6,21 +6,41 @@ const ChatBox = ({ emergencyId, currentUser }) => {
     const socket = useSocket();
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
+    const [isConnected, setIsConnected] = useState(false);
     const messagesEndRef = useRef(null);
 
     useEffect(() => {
         if (socket && emergencyId) {
             // Join the emergency room
             socket.emit('join_emergency', emergencyId);
+            console.log('ChatBox: Joined emergency room', emergencyId);
 
             // Listen for incoming messages
-            socket.on('receive_message', (data) => {
+            const handleMessage = (data) => {
+                console.log('ChatBox: Received message', data);
                 setMessages((prev) => [...prev, data]);
+            };
+
+            socket.on('receive_message', handleMessage);
+
+            // Handle connection status
+            socket.on('connect', () => {
+                console.log('ChatBox: Connected to socket');
+                setIsConnected(true);
+                socket.emit('join_emergency', emergencyId);
+            });
+
+            socket.on('disconnect', () => {
+                console.log('ChatBox: Disconnected from socket');
+                setIsConnected(false);
             });
 
             // Cleanup
             return () => {
-                socket.off('receive_message');
+                socket.off('receive_message', handleMessage);
+                socket.off('connect');
+                socket.off('disconnect');
+                console.log('ChatBox: Left emergency room', emergencyId);
             };
         }
     }, [socket, emergencyId]);
@@ -57,8 +77,14 @@ const ChatBox = ({ emergencyId, currentUser }) => {
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col h-[400px]">
-            <div className="p-4 border-b bg-gray-50 rounded-t-xl">
+            <div className="p-4 border-b bg-gray-50 rounded-t-xl flex justify-between items-center">
                 <h3 className="font-bold text-gray-700">Live Chat</h3>
+                <div className="flex items-center gap-2">
+                    <span className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                    <span className="text-xs text-gray-500">
+                        {isConnected ? 'Connected' : 'Disconnected'}
+                    </span>
+                </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
