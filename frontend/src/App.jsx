@@ -6,6 +6,7 @@ import {
 } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -35,9 +36,12 @@ const PublicRoute = ({ children }) => {
 };
 
 function App() {
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
   return (
-    <AuthProvider>
-      <SocketProvider>
+    <GoogleOAuthProvider clientId={googleClientId}>
+      <AuthProvider>
+        <SocketProvider>
         <Router>
           <div className="min-h-screen bg-gray-50 text-gray-900">
             <Toaster position="top-center" />
@@ -104,6 +108,7 @@ function App() {
         </Router>
       </SocketProvider>
     </AuthProvider>
+    </GoogleOAuthProvider>
   );
 }
 

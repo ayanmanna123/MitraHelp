@@ -1,6 +1,7 @@
 import { createContext, useState, useEffect, useContext } from 'react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
+import { googleLogout } from '@react-oauth/google';
 
 const AuthContext = createContext();
 
@@ -59,9 +60,26 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const googleLogin = async (idToken) => {
+        try {
+            const { data } = await api.post('/auth/google', { idToken });
+            if (data.success) {
+                localStorage.setItem('token', data.token);
+                setUser(data.user);
+                toast.success(data.isNewUser ? 'Account created successfully' : 'Login successful');
+                return true;
+            }
+            return false;
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Google login failed');
+            return false;
+        }
+    };
+
     const logout = () => {
         localStorage.removeItem('token');
         setUser(null);
+        googleLogout(); // Logout from Google as well
         toast.success('Logged out successfully');
     };
 
@@ -82,6 +100,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         sendOtp,
         verifyOtp,
+        googleLogin,
         logout,
         refreshUserData
     };

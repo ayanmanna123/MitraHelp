@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
+import GoogleLoginButton from '../components/auth/GoogleLoginButton';
 
 const Login = () => {
     const [phone, setPhone] = useState('');
@@ -37,22 +38,39 @@ const Login = () => {
                 </h2>
 
                 {step === 'phone' ? (
-                    <form onSubmit={handleSendOtp} className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                            <input
-                                type="tel"
-                                value={phone}
-                                onChange={(e) => setPhone(e.target.value)}
-                                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
-                                placeholder="+91 9876543210"
-                                required
-                            />
+                    <>
+                        <form onSubmit={handleSendOtp} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                                <input
+                                    type="tel"
+                                    value={phone}
+                                    onChange={(e) => setPhone(e.target.value)}
+                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
+                                    placeholder="+91 9876543210"
+                                    required
+                                />
+                            </div>
+                            <button type="submit" className="w-full bg-red-600 text-white py-3 rounded-lg font-bold hover:bg-red-700 transition">
+                                Send OTP
+                            </button>
+                        </form>
+                        
+                        <div className="mt-6">
+                            <div className="relative">
+                                <div className="absolute inset-0 flex items-center">
+                                    <div className="w-full border-t border-gray-300"></div>
+                                </div>
+                                <div className="relative flex justify-center text-sm">
+                                    <span className="px-2 bg-white text-gray-500">Or continue with</span>
+                                </div>
+                            </div>
+                            
+                            <div className="mt-4">
+                                <GoogleLoginButton />
+                            </div>
                         </div>
-                        <button type="submit" className="w-full bg-red-600 text-white py-3 rounded-lg font-bold hover:bg-red-700 transition">
-                            Send OTP
-                        </button>
-                    </form>
+                    </>
                 ) : step === 'otp' ? (
                     <form onSubmit={handleVerifyOtp} className="space-y-4">
                         <div>
@@ -80,14 +98,14 @@ const Login = () => {
                             <button
                                 type="button"
                                 onClick={() => setRole('user')}
-                                className={`w-full p-4 border-2 rounded-lg text-left transition $ {
+                                className={`w-full p-4 border-2 rounded-lg text-left transition ${
                                     role === 'user' 
                                         ? 'border-red-500 bg-red-50' 
                                         : 'border-gray-200 hover:border-gray-300'
                                 }`}
                             >
                                 <div className="flex items-center">
-                                    <div className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center $ {
+                                    <div className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
                                         role === 'user' ? 'border-red-500 bg-red-500' : 'border-gray-300'
                                     }`}>
                                         {role === 'user' && (
@@ -104,14 +122,14 @@ const Login = () => {
                             <button
                                 type="button"
                                 onClick={() => setRole('volunteer')}
-                                className={`w-full p-4 border-2 rounded-lg text-left transition $ {
+                                className={`w-full p-4 border-2 rounded-lg text-left transition ${
                                     role === 'volunteer' 
                                         ? 'border-red-500 bg-red-50' 
                                         : 'border-gray-200 hover:border-gray-300'
                                 }`}
                             >
                                 <div className="flex items-center">
-                                    <div className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center $ {
+                                    <div className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
                                         role === 'volunteer' ? 'border-red-500 bg-red-500' : 'border-gray-300'
                                     }`}>
                                         {role === 'volunteer' && (
