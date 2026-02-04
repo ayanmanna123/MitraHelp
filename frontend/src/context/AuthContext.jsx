@@ -95,6 +95,94 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const updateLocation = async (latitude, longitude) => {
+        try {
+            console.log('Updating location with:', { latitude, longitude });
+            const { data } = await api.put('/users/location', { latitude, longitude });
+            console.log('Location update response:', data);
+            
+            if (data.success) {
+                setUser(prev => ({
+                    ...prev,
+                    location: data.data.location
+                }));
+                toast.success('Location updated successfully');
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error updating location:', error);
+            console.error('Error response:', error.response?.data);
+            
+            const errorMessage = error.response?.data?.message || 
+                               error.response?.data?.error || 
+                               'Failed to update location';
+            
+            toast.error(`Location Error: ${errorMessage}`);
+            return false;
+        }
+    };
+
+    const getCurrentLocation = async () => {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                toast.error('Geolocation is not supported by your browser');
+                reject(new Error('Geolocation not supported'));
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    const { latitude, longitude } = position.coords;
+                    try {
+                        await updateLocation(latitude, longitude);
+                        resolve({ latitude, longitude });
+                    } catch (error) {
+                        reject(error);
+                    }
+                },
+                (error) => {
+                    console.error('Geolocation error:', error);
+                    let message = 'Unable to get your location';
+                    
+                    switch (error.code) {
+                        case error.PERMISSION_DENIED:
+                            message = 'Location access denied. Please enable location services.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            message = 'Location information is unavailable.';
+                            break;
+                        case error.TIMEOUT:
+                            message = 'Location request timed out.';
+                            break;
+                        default:
+                            message = 'An unknown error occurred while getting location.';
+                    }
+                    
+                    toast.error(message);
+                    reject(new Error(message));
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 300000
+                }
+            );
+        });
+    };
+
+    const getLocationFromUser = async () => {
+        try {
+            const { data } = await api.get('/users/location');
+            if (data.success) {
+                return data.data;
+            }
+        } catch (error) {
+            console.error('Error getting location from user:', error);
+        }
+        return null;
+    };
+
     const value = {
         user,
         loading,
@@ -102,7 +190,10 @@ export const AuthProvider = ({ children }) => {
         verifyOtp,
         googleLogin,
         logout,
-        refreshUserData
+        refreshUserData,
+        updateLocation,
+        getCurrentLocation,
+        getLocationFromUser
     };
 
     return (

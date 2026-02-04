@@ -25,7 +25,10 @@ const emergencySchema = new mongoose.Schema({
             type: [Number], // [longitude, latitude]
             required: true
         },
-        address: String // Human readable address
+        address: {
+            type: String,
+            default: 'Unknown Location'
+        }
     },
     status: {
         type: String,

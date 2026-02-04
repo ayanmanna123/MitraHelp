@@ -12,6 +12,7 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import UserDashboard from "./pages/UserDashboard";
 import VolunteerDashboard from "./pages/VolunteerDashboard";
+import NeedHelp from "./pages/NeedHelp";
 
 import Dashboard from "./pages/Dashboard";
 import CreateEmergency from "./pages/CreateEmergency";
@@ -74,6 +75,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <UserDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/need-help"
+                  element={
+                    <ProtectedRoute>
+                      <NeedHelp />
                     </ProtectedRoute>
                   }
                 />

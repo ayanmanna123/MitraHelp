@@ -1,17 +1,27 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FaAmbulance, FaHandHoldingHeart } from 'react-icons/fa';
 
 const Home = () => {
+    const navigate = useNavigate();
+    
+    const handleNeedHelp = () => {
+        navigate('/login'); // Redirect to login, then to need-help after auth
+    };
+    
     return (
         <div className="flex flex-col min-h-screen">
             {/* Hero Section */}
             <header className="bg-red-600 text-white py-20 px-4 text-center">
                 <h1 className="text-4xl md:text-6xl font-bold mb-4">MitraHelp</h1>
                 <p className="text-xl md:text-2xl mb-8">Emergency Volunteer & Assistance Platform</p>
-                <div className="flex justify-center gap-4">
-                    <Link to="/user-dashboard" className="bg-white text-red-600 px-8 py-3 rounded-full font-bold shadow-lg hover:bg-gray-100 transition">
-                        Request Help Now
-                    </Link>
+                <div className="flex flex-col sm:flex-row justify-center gap-4">
+                    <button 
+                        onClick={handleNeedHelp}
+                        className="bg-white text-red-600 px-8 py-3 rounded-full font-bold shadow-lg hover:bg-gray-100 transition flex items-center justify-center gap-2"
+                    >
+                        <FaAmbulance />
+                        Need Help Now
+                    </button>
                     <Link to="/login" className="bg-transparent border-2 border-white text-white px-8 py-3 rounded-full font-bold hover:bg-white/10 transition">
                         Volunteer Login
                     </Link>

@@ -7,23 +7,62 @@ const User = require('../models/user.model');
 exports.createEmergency = async (req, res) => {
     try {
         const { type, description, latitude, longitude, address } = req.body;
+        
+        console.log('Emergency request body:', req.body);
+        console.log('User ID:', req.user.id);
 
         if (!latitude || !longitude) {
-            return res.status(400).json({ success: false, message: 'Location is required' });
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Location is required',
+                received: { latitude, longitude }
+            });
+        }
+
+        // Validate latitude and longitude
+        const lat = parseFloat(latitude);
+        const lon = parseFloat(longitude);
+        
+        if (isNaN(lat) || isNaN(lon)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Invalid latitude or longitude values',
+                received: { latitude, longitude }
+            });
+        }
+
+        if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Latitude must be between -90 and 90, longitude between -180 and 180',
+                received: { latitude: lat, longitude: lon }
+            });
+        }
+
+        // Validate emergency type
+        const validTypes = ['Medical', 'Accident', 'Blood', 'Disaster', 'Other'];
+        if (!validTypes.includes(type)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Invalid emergency type',
+                validTypes
+            });
         }
 
         // Create Emergency
         const emergency = await Emergency.create({
             requester: req.user.id,
             type,
-            description,
+            description: description || `Emergency request for ${type}`,
             location: {
                 type: 'Point',
-                coordinates: [parseFloat(longitude), parseFloat(latitude)],
-                address
+                coordinates: [lon, lat],
+                address: address || `Location: ${lat.toFixed(4)}, ${lon.toFixed(4)}`
             },
             status: 'Searching'
         });
+
+        console.log('Emergency created successfully:', emergency._id);
 
         // Find nearby volunteers (within 5km for example)
         // Note: In production, radius should be dynamic or larger
@@ -125,6 +164,25 @@ exports.acceptEmergency = async (req, res) => {
 
     } catch (error) {
         res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
+// @desc    Get all emergencies for a user
+// @route   GET /api/emergency/user
+// @access  Private
+exports.getUserEmergencies = async (req, res) => {
+    try {
+        const emergencies = await Emergency.find({ requester: req.user.id })
+            .populate('assignedVolunteer', 'name phone')
+            .sort({ createdAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            data: emergencies
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Server Error', error: error.message });
     }
 };
 
