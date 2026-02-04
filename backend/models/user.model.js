@@ -54,6 +54,21 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    permanentAddress: {
+        type: {
+            type: String,
+            enum: ['Point'],
+            default: 'Point'
+        },
+        coordinates: {
+            type: [Number], // [longitude, latitude]
+            default: [0, 0]
+        },
+        address: {
+            type: String,
+            default: 'Unknown Address'
+        }
+    },
     bloodGroup: {
         type: String,
         enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Unknown'],
@@ -104,5 +119,6 @@ const userSchema = new mongoose.Schema({
 
 // Create 2dsphere index for geospatial queries
 userSchema.index({ location: '2dsphere' });
+userSchema.index({ 'permanentAddress.coordinates': '2dsphere' });
 
 module.exports = mongoose.model('User', userSchema);

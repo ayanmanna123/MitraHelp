@@ -113,6 +113,92 @@ exports.updateLocation = async (req, res) => {
 
 };
 
+// @desc    Get user profile
+// @route   GET /api/users/profile
+// @access  Private
+exports.getProfile = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id)
+            .select('-__v'); // Exclude version field
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: user
+        });
+    } catch (error) {
+        console.error('Get profile error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch profile',
+            error: error.message
+        });
+    }
+};
+
+// @desc    Update user profile including permanent address
+// @route   PUT /api/users/profile
+// @access  Private
+exports.updateProfile = async (req, res) => {
+    try {
+        const { name, permanentAddress } = req.body;
+        
+        const updateData = {};
+        
+        if (name) {
+            updateData.name = name.trim();
+        }
+        
+        if (permanentAddress) {
+            const { latitude, longitude, address } = permanentAddress;
+            
+            if (latitude !== undefined && longitude !== undefined) {
+                const lat = parseFloat(latitude);
+                const lon = parseFloat(longitude);
+                
+                if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Invalid coordinate range for permanent address'
+                    });
+                }
+                
+                updateData.permanentAddress = {
+                    type: 'Point',
+                    coordinates: [lon, lat],
+                    address: address || `Location: ${lat.toFixed(4)}, ${lon.toFixed(4)}`
+                };
+            } else if (address) {
+                // Update only the address text if coordinates not provided
+                updateData['permanentAddress.address'] = address;
+            }
+        }
+        
+        const updatedUser = await User.findByIdAndUpdate(
+            req.user.id,
+            { $set: updateData },
+            { new: true, runValidators: true }
+        ).select('-__v');
+
+        res.status(200).json({
+            success: true,
+            message: 'Profile updated successfully',
+            data: updatedUser
+        });
+
+    } catch (error) {
+        console.error('Update profile error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update profile',
+            error: error.message
+        });
+    }
+};
+
 // @desc    Get current location
 // @route   GET /api/users/location
 // @access  Private

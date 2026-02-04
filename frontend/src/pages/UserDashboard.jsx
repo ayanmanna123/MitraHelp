@@ -1,6 +1,6 @@
 import { useAuth } from '../context/AuthContext';
 import { useState, useEffect } from 'react';
-import { FaMapMarkerAlt, FaUserShield, FaArrowRight, FaAmbulance, FaLocationArrow } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaUserShield, FaArrowRight, FaAmbulance, FaLocationArrow, FaExclamationTriangle, FaHome, FaEdit, FaSave, FaTimes } from 'react-icons/fa';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -10,12 +10,64 @@ const UserDashboard = () => {
     const navigate = useNavigate();
     const [volunteerProgress, setVolunteerProgress] = useState(null);
     const [updatingLocation, setUpdatingLocation] = useState(false);
+    const [activeEmergencies, setActiveEmergencies] = useState([]);
+    const [loadingEmergencies, setLoadingEmergencies] = useState(false);
+    const [editingAddress, setEditingAddress] = useState(false);
+    const [permanentAddress, setPermanentAddress] = useState(user?.permanentAddress?.address || '');
+    const [updatingProfile, setUpdatingProfile] = useState(false);
 
     useEffect(() => {
         if (user?.role === 'volunteer' || user?.role === 'user') {
             fetchVolunteerProgress(); // Keep this in case they are applying
+            fetchActiveEmergencies();
+            setPermanentAddress(user?.permanentAddress?.address || '');
         }
     }, [user]);
+
+    const fetchActiveEmergencies = async () => {
+        setLoadingEmergencies(true);
+        try {
+            const response = await api.get('/emergency/user');
+            if (response.data.success) {
+                // Filter for active (not completed) emergencies
+                const active = response.data.data.filter(em => 
+                    em.status !== 'Completed'
+                );
+                setActiveEmergencies(active);
+            }
+        } catch (error) {
+            console.error('Error fetching emergencies:', error);
+        } finally {
+            setLoadingEmergencies(false);
+        }
+    };
+
+    const updatePermanentAddress = async () => {
+        if (!permanentAddress.trim()) {
+            toast.error('Please enter a valid address');
+            return;
+        }
+
+        setUpdatingProfile(true);
+        try {
+            const response = await api.put('/users/profile', {
+                permanentAddress: {
+                    address: permanentAddress.trim()
+                }
+            });
+            
+            if (response.data.success) {
+                toast.success('Permanent address updated successfully');
+                setEditingAddress(false);
+                // Update auth context if needed
+            }
+        } catch (error) {
+            console.error('Error updating address:', error);
+            toast.error(error.response?.data?.message || 'Failed to update address');
+        } finally {
+            setUpdatingProfile(false);
+        }
+    };
 
     const fetchVolunteerProgress = async () => {
         try {
@@ -123,8 +175,111 @@ const UserDashboard = () => {
                                 </p>
                             )}
                         </div>
+                        
+                        {/* Permanent Address Section */}
+                        <div className="p-4 border rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                                <h3 className="font-semibold flex items-center gap-2">
+                                    <FaHome className="text-green-500" /> Permanent Address
+                                </h3>
+                                {!editingAddress ? (
+                                    <button
+                                        onClick={() => setEditingAddress(true)}
+                                        className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
+                                    >
+                                        <FaEdit className="text-xs" />
+                                        Edit
+                                    </button>
+                                ) : (
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={updatePermanentAddress}
+                                            disabled={updatingProfile}
+                                            className="flex items-center gap-1 text-sm text-green-600 hover:text-green-800 disabled:opacity-50"
+                                        >
+                                            <FaSave className="text-xs" />
+                                            {updatingProfile ? 'Saving...' : 'Save'}
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setEditingAddress(false);
+                                                setPermanentAddress(user?.permanentAddress?.address || '');
+                                            }}
+                                            className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-800"
+                                        >
+                                            <FaTimes className="text-xs" />
+                                            Cancel
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {editingAddress ? (
+                                <input
+                                    type="text"
+                                    value={permanentAddress}
+                                    onChange={(e) => setPermanentAddress(e.target.value)}
+                                    placeholder="Enter your permanent address"
+                                    className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    autoFocus
+                                />
+                            ) : (
+                                <p className="text-gray-600 truncate">
+                                    {user?.permanentAddress?.address || 'Not set'}
+                                </p>
+                            )}
+                            
+                            <p className="text-xs text-gray-500 mt-2">
+                                Used for emergency notifications when you're not at your current location
+                            </p>
+                        </div>
                     </div>
                 </div>
+
+                {/* Active Emergencies Section */}
+                {activeEmergencies.length > 0 && (
+                    <div className="mb-8 bg-white rounded-xl shadow p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                <FaExclamationTriangle className="text-yellow-500" />
+                                Active Emergencies
+                            </h2>
+                            <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">
+                                {activeEmergencies.length} ongoing
+                            </span>
+                        </div>
+                        
+                        <div className="space-y-3">
+                            {activeEmergencies.map((emergency) => (
+                                <div 
+                                    key={emergency._id}
+                                    className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition"
+                                    onClick={() => navigate(`/emergency/${emergency._id}`)}
+                                >
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <h3 className="font-bold text-gray-800">{emergency.type} Emergency</h3>
+                                            <p className="text-gray-600 text-sm mt-1">
+                                                {emergency.description || 'No description provided'}
+                                            </p>
+                                            <div className="flex items-center gap-2 mt-2">
+                                                <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded">
+                                                    {emergency.status}
+                                                </span>
+                                                {emergency.assignedVolunteer && (
+                                                    <span className="text-xs text-gray-500">
+                                                        Volunteer: {emergency.assignedVolunteer.name}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <FaArrowRight className="text-gray-400 mt-1" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 <div className="grid md:grid-cols-1 gap-6">
                     <div 

@@ -215,7 +215,7 @@ const calculateVolunteerProgress = (user) => {
 // @access  Private
 exports.updateProfile = async (req, res) => {
     try {
-        const { name, email, role, latitude, longitude, isAvailable, bloodGroup, fcmToken } = req.body;
+        const { name, email, role, latitude, longitude, isAvailable, bloodGroup, fcmToken, permanentAddress } = req.body;
 
         const user = await User.findById(req.user.id);
 
@@ -241,6 +241,29 @@ exports.updateProfile = async (req, res) => {
                 coordinates: [parseFloat(longitude), parseFloat(latitude)]
             };
             profileChanged = true;
+        }
+
+        if (permanentAddress) {
+            if (permanentAddress.address) {
+                // Update only the address text
+                user.permanentAddress = user.permanentAddress || {};
+                user.permanentAddress.address = permanentAddress.address;
+                profileChanged = true;
+            }
+            
+            if (permanentAddress.latitude !== undefined && permanentAddress.longitude !== undefined) {
+                // Update coordinates if provided
+                const lat = parseFloat(permanentAddress.latitude);
+                const lon = parseFloat(permanentAddress.longitude);
+                
+                if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+                    user.permanentAddress = user.permanentAddress || {};
+                    user.permanentAddress.type = 'Point';
+                    user.permanentAddress.coordinates = [lon, lat];
+                    user.permanentAddress.address = user.permanentAddress.address || `Location: ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+                    profileChanged = true;
+                }
+            }
         }
 
         // If profile info was updated and user is a volunteer, update progress

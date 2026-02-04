@@ -1,5 +1,6 @@
 const Emergency = require('../models/emergency.model');
 const User = require('../models/user.model');
+const { sendEmergencyNotifications } = require('../utils/emailService');
 
 // @desc    Create new emergency request & Notify volunteers
 // @route   POST /api/emergency
@@ -79,7 +80,7 @@ exports.createEmergency = async (req, res) => {
                     $maxDistance: radiusInKm * 1000 // meters
                 }
             }
-        });
+        }).select('name email location'); // Only select needed fields
 
         // Add them to notified list (async update)
         const volunteerIds = nearbyVolunteers.map(v => v._id);
@@ -99,10 +100,40 @@ exports.createEmergency = async (req, res) => {
             });
         }
 
+        // Send email notifications to volunteers
+        let emailResults = null;
+        if (nearbyVolunteers.length > 0) {
+            try {
+                // Get requester details
+                const requester = await User.findById(req.user.id).select('name');
+                
+                // Send emails
+                emailResults = await sendEmergencyNotifications(
+                    nearbyVolunteers,
+                    emergency,
+                    requester
+                );
+                
+                console.log('Email notification results:', emailResults);
+            } catch (emailError) {
+                console.error('Failed to send email notifications:', emailError.message);
+                // Don't fail the entire request if emails fail
+                emailResults = {
+                    success: false,
+                    error: emailError.message,
+                    emailsSent: 0
+                };
+            }
+        }
+
         res.status(201).json({
             success: true,
             data: emergency,
-            volunteersFound: nearbyVolunteers.length
+            volunteersFound: nearbyVolunteers.length,
+            notifications: {
+                socket: 'Sent to connected volunteers',
+                email: emailResults || 'No volunteers found or email not configured'
+            }
         });
 
     } catch (error) {
@@ -201,11 +232,32 @@ exports.updateStatus = async (req, res) => {
         // Only requester or assigned volunteer can update
         if (emergency.requester.toString() !== req.user.id &&
             emergency.assignedVolunteer?.toString() !== req.user.id) {
-            return res.status(403).json({ success: false, message: 'Not authorized' });
+            return res.status(403).json({ success: false, message: 'Not authorized to update this emergency' });
         }
 
+        // Validate status
+        const validStatuses = ['Searching', 'Accepted', 'On The Way', 'Completed'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Invalid status', 
+                validStatuses 
+            });
+        }
+
+        // Prevent reverting from Completed status
+        if (emergency.status === 'Completed' && status !== 'Completed') {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Cannot change status once rescue is completed' 
+            });
+        }
+
+        const oldStatus = emergency.status;
         emergency.status = status;
         await emergency.save();
+
+        console.log(`Emergency ${emergency._id} status updated from ${oldStatus} to ${status} by user ${req.user.id}`);
 
         // Notify other party
         const io = req.app.get('socketio');
@@ -222,10 +274,15 @@ exports.updateStatus = async (req, res) => {
             }
         }
 
-        res.status(200).json({ success: true, data: emergency });
+        res.status(200).json({ 
+            success: true, 
+            data: emergency,
+            message: `Emergency status updated to ${status}`
+        });
 
     } catch (error) {
-        res.status(500).json({ success: false, message: 'Server Error' });
+        console.error('Error updating emergency status:', error);
+        res.status(500).json({ success: false, message: 'Server Error', error: error.message });
     }
 };
 // @desc    Get nearby emergencies

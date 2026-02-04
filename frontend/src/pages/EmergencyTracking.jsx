@@ -6,13 +6,14 @@ import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import ChatBox from '../components/ChatBox';
 import { toast } from 'react-hot-toast';
-import { FaPhoneAlt, FaUserShield, FaAmbulance } from 'react-icons/fa';
+import { FaPhoneAlt, FaUserShield, FaAmbulance, FaCheckCircle, FaSpinner } from 'react-icons/fa';
 
 const EmergencyTracking = () => {
     const { id } = useParams();
     const [emergency, setEmergency] = useState(null);
     const [loading, setLoading] = useState(true);
     const [volunteerLocation, setVolunteerLocation] = useState(null);
+    const [completingRescue, setCompletingRescue] = useState(false);
     const socket = useSocket();
     const { user } = useAuth();
     const navigate = useNavigate();
@@ -122,6 +123,43 @@ const EmergencyTracking = () => {
         }
     };
 
+    // Complete rescue function
+    const completeRescue = async () => {
+        if (emergency.status === 'Completed') {
+            toast.error('This emergency is already completed');
+            return;
+        }
+
+        if (!window.confirm('Are you sure you want to mark this rescue as completed?')) {
+            return;
+        }
+
+        setCompletingRescue(true);
+        try {
+            const response = await api.put(`/emergency/${id}/status`, {
+                status: 'Completed'
+            });
+            
+            if (response.data.success) {
+                setEmergency(prev => ({ ...prev, status: 'Completed' }));
+                toast.success('Rescue marked as completed! Thank you for confirming.');
+                
+                // Emit socket event to notify volunteer
+                if (socket) {
+                    socket.emit('status_update', {
+                        emergencyId: id,
+                        status: 'Completed'
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Error completing rescue:', error);
+            toast.error(error.response?.data?.message || 'Failed to complete rescue');
+        } finally {
+            setCompletingRescue(false);
+        }
+    };
+
     const markers = [];
     // Requester Marker
     if (emergency.location) {
@@ -151,8 +189,42 @@ const EmergencyTracking = () => {
                         </h1>
                         <p className="text-gray-500 text-sm">ID: {emergency._id}</p>
                     </div>
-                    <div className={`px-4 py-2 rounded-full font-bold text-lg ${getStatusColor(emergency.status)}`}>
-                        {emergency.status}
+                    <div className="flex flex-col sm:flex-row items-center gap-3">
+                        <div className={`px-4 py-2 rounded-full font-bold text-lg ${getStatusColor(emergency.status)}`}>
+                            {emergency.status}
+                        </div>
+                                                
+                        {/* Complete Rescue Button - Only for requester and when status is not completed */}
+                        {emergency.requester?._id === user._id && emergency.status !== 'Completed' && (
+                            <button
+                                onClick={completeRescue}
+                                disabled={completingRescue}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-white transition ${completingRescue 
+                                    ? 'bg-gray-400 cursor-not-allowed' 
+                                    : 'bg-green-600 hover:bg-green-700'}
+                                `}
+                            >
+                                {completingRescue ? (
+                                    <>
+                                        <FaSpinner className="animate-spin" />
+                                        Completing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <FaCheckCircle />
+                                        Complete Rescue
+                                    </>
+                                )}
+                            </button>
+                        )}
+                                                
+                        {/* Show confirmation when completed */}
+                        {emergency.status === 'Completed' && (
+                            <div className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 rounded-lg">
+                                <FaCheckCircle />
+                                <span className="font-medium">Rescue Completed</span>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -180,7 +252,7 @@ const EmergencyTracking = () => {
                                     <h3 className="text-xl font-bold">{emergency.assignedVolunteer.name}</h3>
                                     <p className="text-gray-500 mb-4">{emergency.assignedVolunteer.phone}</p>
 
-                                    <a href={`tel:${emergency.assignedVolunteer.phone}`} className="block w-full bg-green-500 text-white py-3 rounded-xl font-bold hover:bg-green-600 transition flex items-center justify-center gap-2">
+                                    <a href={`tel:${emergency.assignedVolunteer.phone}`} className="flex items-center justify-center gap-2 w-full bg-green-500 text-white py-3 rounded-xl font-bold hover:bg-green-600 transition">
                                         <FaPhoneAlt /> Call Volunteer
                                     </a>
                                 </div>
