@@ -1,4 +1,4 @@
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Circle, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { useEffect, useState } from 'react';
@@ -10,6 +10,18 @@ L.Icon.Default.mergeOptions({
     iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
+
+// Custom icons for different marker types
+const createCustomIcon = (color = 'red') => {
+    return L.icon({
+        iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+    });
+};
 
 // Component to handle clicks on map
 const LocationSelector = ({ onLocationSelect }) => {
@@ -26,7 +38,9 @@ const MapComponent = ({
     onLocationSelect,
     readOnly = false,
     markers = [],
-    height = '400px'
+    height = '400px',
+    showRoute = false,
+    routePoints = []
 }) => {
     const defaultCenter = [20.5937, 78.9629]; // India center
     const [center, setCenter] = useState(initialLocation || defaultCenter);
@@ -78,10 +92,24 @@ const MapComponent = ({
             )}
 
             {markers.map((marker, idx) => (
-                <Marker key={idx} position={marker.position}>
+                <Marker 
+                    key={idx} 
+                    position={marker.position}
+                    icon={marker.icon ? createCustomIcon(marker.icon) : undefined}
+                >
                     <Popup>{marker.popupText}</Popup>
                 </Marker>
             ))}
+
+            {/* Show route line between points */}
+            {showRoute && routePoints.length >= 2 && (
+                <Polyline
+                    positions={routePoints}
+                    color="#3b82f6"
+                    weight={4}
+                    opacity={0.7}
+                />
+            )}
 
             {/* Show user's current location with a circle if available */}
             {selectedPosition && (

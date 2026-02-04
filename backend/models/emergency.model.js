@@ -32,7 +32,7 @@ const emergencySchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['Searching', 'Accepted', 'On The Way', 'Completed', 'Cancelled'],
+        enum: ['Searching', 'Accepted', 'On The Way', 'Arrived', 'Completed', 'Cancelled'],
         default: 'Searching'
     },
     assignedVolunteer: {
@@ -42,7 +42,63 @@ const emergencySchema = new mongoose.Schema({
     volunteersNotified: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
-    }]
+    }],
+    // Tracking fields for real-time location updates
+    tracking: {
+        volunteerLocations: [{
+            userId: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'User'
+            },
+            location: {
+                type: {
+                    type: String,
+                    enum: ['Point'],
+                    default: 'Point'
+                },
+                coordinates: {
+                    type: [Number], // [longitude, latitude]
+                },
+                timestamp: {
+                    type: Date,
+                    default: Date.now
+                },
+                heading: Number, // Direction in degrees
+                speed: Number,   // Speed in m/s
+                accuracy: Number // Accuracy in meters
+            }
+        }],
+        estimatedArrivalTime: Date,
+        route: {
+            type: {
+                type: String,
+                enum: ['LineString'],
+                default: 'LineString'
+            },
+            coordinates: [[Number]] // Array of [longitude, latitude] points
+        },
+        statusUpdates: [{
+            status: {
+                type: String,
+                enum: ['Searching', 'Accepted', 'On The Way', 'Arrived', 'Completed', 'Cancelled']
+            },
+            timestamp: {
+                type: Date,
+                default: Date.now
+            },
+            userId: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'User'
+            },
+            location: {
+                type: {
+                    type: String,
+                    enum: ['Point']
+                },
+                coordinates: [Number]
+            }
+        }]
+    }
 }, {
     timestamps: true
 });

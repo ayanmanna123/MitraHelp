@@ -84,9 +84,44 @@ io.on('connection', (socket) => {
 
     // Handle Live Location Updates
     socket.on('location_update', (data) => {
-        // data: { emergencyId, userId, role, latitude, longitude, heading }
+        // data: { emergencyId, userId, role, latitude, longitude, heading, speed, accuracy }
         // Broadcast to everyone in the room EXCEPT the sender
         socket.to(data.emergencyId).emit('remote_location_update', data);
+        
+        // Also emit to requester specifically for volunteer location updates
+        if (data.role === 'volunteer') {
+            socket.to(data.emergencyId).emit('volunteer_location_update', {
+                emergencyId: data.emergencyId,
+                volunteerId: data.userId,
+                latitude: data.latitude,
+                longitude: data.longitude,
+                heading: data.heading,
+                speed: data.speed,
+                accuracy: data.accuracy,
+                timestamp: new Date()
+            });
+        }
+    });
+
+    // Handle tracking status updates
+    socket.on('tracking_status_update', (data) => {
+        // data: { emergencyId, status, userId, userName }
+        socket.to(data.emergencyId).emit('tracking_status_update', data);
+    });
+
+    // Handle emergency chat room joining
+    socket.on('join_emergency_chat', (data) => {
+        // data: { emergencyId, userId, userName, role }
+        socket.join(data.emergencyId);
+        console.log(`User ${data.userName} (${data.role}) joined chat for emergency ${data.emergencyId}`);
+        
+        // Notify others in the room
+        socket.to(data.emergencyId).emit('user_joined_chat', {
+            userId: data.userId,
+            userName: data.userName,
+            role: data.role,
+            emergencyId: data.emergencyId
+        });
     });
 
     socket.on('disconnect', () => {

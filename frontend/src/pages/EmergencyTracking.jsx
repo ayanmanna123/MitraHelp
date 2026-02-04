@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import MapComponent from '../components/map/MapComponent';
 import api from '../services/api';
@@ -6,7 +6,7 @@ import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import ChatBox from '../components/ChatBox';
 import { toast } from 'react-hot-toast';
-import { FaPhoneAlt, FaUserShield, FaAmbulance, FaCheckCircle, FaSpinner } from 'react-icons/fa';
+import { FaPhoneAlt, FaUserShield, FaAmbulance, FaCheckCircle, FaSpinner, FaLocationArrow, FaRoute, FaClock } from 'react-icons/fa';
 
 const EmergencyTracking = () => {
     const { id } = useParams();
@@ -14,9 +14,12 @@ const EmergencyTracking = () => {
     const [loading, setLoading] = useState(true);
     const [volunteerLocation, setVolunteerLocation] = useState(null);
     const [completingRescue, setCompletingRescue] = useState(false);
+    const [trackingData, setTrackingData] = useState(null);
+    const [eta, setEta] = useState(null);
     const socket = useSocket();
     const { user } = useAuth();
     const navigate = useNavigate();
+    const locationWatchId = useRef(null);
 
     const fetchEmergency = async () => {
         try {
@@ -32,8 +35,23 @@ const EmergencyTracking = () => {
         }
     };
 
+    const fetchTrackingData = async () => {
+        try {
+            const { data } = await api.get(`/emergency/${id}/tracking`);
+            if (data.success) {
+                setTrackingData(data.data);
+                if (data.data.estimatedArrivalTime) {
+                    setEta(new Date(data.data.estimatedArrivalTime));
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch tracking data:', error);
+        }
+    };
+
     useEffect(() => {
         fetchEmergency();
+        fetchTrackingData();
     }, [id]);
 
     useEffect(() => {
@@ -42,7 +60,8 @@ const EmergencyTracking = () => {
                 if (data.emergencyId === id) {
                     setEmergency(prev => ({ ...prev, status: data.status }));
                     toast.success(`Status updated: ${data.status}`);
-                    fetchEmergency(); // Refresh to get latest data (e.g. assigned volunteer)
+                    fetchEmergency();
+                    fetchTrackingData();
                 }
             });
 
@@ -62,53 +81,176 @@ const EmergencyTracking = () => {
                 }
             });
 
-            // Listen for live location updates
-            socket.on('remote_location_update', (data) => {
-                if (data.emergencyId === id && data.role === 'volunteer') {
-                    // Update volunteer location marker
-                    setVolunteerLocation([data.longitude, data.latitude]); // GeoJSON format [lng, lat]
+            // Listen for live location updates from volunteer
+            socket.on('volunteer_location_update', (data) => {
+                if (data.emergencyId === id) {
+                    setVolunteerLocation([data.longitude, data.latitude]);
+                    if (data.timestamp) {
+                        setEta(calculateETA(data));
+                    }
+                }
+            });
+
+            // Listen for tracking status updates
+            socket.on('tracking_status_update', (data) => {
+                if (data.emergencyId === id) {
+                    setEmergency(prev => ({ ...prev, status: data.status }));
+                    toast.success(`${data.userName} updated status to: ${data.status}`);
+                    fetchTrackingData();
                 }
             });
         }
+
+        return () => {
+            if (socket) {
+                socket.off('status_update');
+                socket.off('emergency_accepted');
+                socket.off('volunteer_location_update');
+                socket.off('tracking_status_update');
+            }
+        };
     }, [socket, id]);
 
-    // Live Location Tracking
+    // Live Location Tracking for volunteers
     useEffect(() => {
         if (!emergency || !socket || !user) return;
 
-        // If I am the assigned volunteer, broadcast my location
         const isAssignedVolunteer = emergency.assignedVolunteer?._id === user._id ||
-            (emergency.assignedVolunteer && emergency.assignedVolunteer === user._id); // Check both populated and unpopulated ID
+            (emergency.assignedVolunteer && emergency.assignedVolunteer === user._id);
 
         if (isAssignedVolunteer && emergency.status !== 'Completed') {
-            const watchId = navigator.geolocation.watchPosition(
-                (position) => {
-                    const { latitude, longitude, heading } = position.coords;
-                    socket.emit('location_update', {
-                        emergencyId: id,
-                        userId: user._id,
-                        role: 'volunteer',
-                        latitude,
-                        longitude,
-                        heading
-                    });
+            // Start watching position
+            locationWatchId.current = navigator.geolocation.watchPosition(
+                async (position) => {
+                    const { latitude, longitude, heading, speed, accuracy } = position.coords;
+                    
+                    // Update local state immediately for smooth UI updates
+                    setVolunteerLocation([longitude, latitude]);
+                    
+                    try {
+                        // Send to backend
+                        await api.post(`/emergency/${id}/location`, {
+                            latitude,
+                            longitude,
+                            heading: heading || 0,
+                            speed: speed || 0,
+                            accuracy: accuracy || 0
+                        });
+                        
+                        // Emit via socket for real-time updates
+                        socket.emit('location_update', {
+                            emergencyId: id,
+                            userId: user._id,
+                            role: 'volunteer',
+                            latitude,
+                            longitude,
+                            heading,
+                            speed,
+                            accuracy
+                        });
+                    } catch (error) {
+                        console.error('Error updating location:', error);
+                    }
                 },
-                (err) => console.error(err),
-                { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                (err) => {
+                    console.error('Geolocation error:', err);
+                    toast.error('Failed to get your location');
+                },
+                { 
+                    enableHighAccuracy: true, 
+                    timeout: 10000, 
+                    maximumAge: 5000 
+                }
             );
 
-            return () => navigator.geolocation.clearWatch(watchId);
+            return () => {
+                if (locationWatchId.current) {
+                    navigator.geolocation.clearWatch(locationWatchId.current);
+                }
+            };
         }
     }, [emergency, socket, user, id]);
 
     // Ensure both parties join the chat room when emergency is accepted
     useEffect(() => {
         if (socket && emergency && emergency.status === 'Accepted') {
-            // Both requester and assigned volunteer should join the chat room
             socket.emit('join_emergency', id);
             console.log('Joined emergency chat room:', id);
         }
     }, [socket, emergency, id]);
+
+    // Calculate ETA based on distance and speed
+    const calculateETA = (locationData) => {
+        if (!emergency?.location?.coordinates || !locationData) return null;
+        
+        const requesterCoords = emergency.location.coordinates; // [lng, lat]
+        const volunteerCoords = [locationData.longitude, locationData.latitude];
+        
+        // Calculate distance in meters
+        const distance = calculateDistance(
+            requesterCoords[1], requesterCoords[0],
+            volunteerCoords[1], volunteerCoords[0]
+        );
+        
+        // Estimate time (assuming walking speed ~1.4 m/s)
+        const speed = locationData.speed || 1.4;
+        const etaSeconds = distance / speed;
+        
+        return new Date(Date.now() + etaSeconds * 1000);
+    };
+
+    // Haversine distance calculation
+    const calculateDistance = (lat1, lon1, lat2, lon2) => {
+        const R = 6371e3; // Earth radius in meters
+        const φ1 = lat1 * Math.PI/180;
+        const φ2 = lat2 * Math.PI/180;
+        const Δφ = (lat2-lat1) * Math.PI/180;
+        const Δλ = (lon2-lon1) * Math.PI/180;
+
+        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                  Math.cos(φ1) * Math.cos(φ2) *
+                  Math.sin(Δλ/2) * Math.sin(Δλ/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+        return R * c;
+    };
+
+    // Update tracking status
+    const updateTrackingStatus = async (newStatus) => {
+        try {
+            const position = await new Promise((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                    enableHighAccuracy: true
+                });
+            });
+            
+            const { latitude, longitude } = position.coords;
+            
+            const response = await api.post(`/emergency/${id}/tracking-status`, {
+                status: newStatus,
+                latitude,
+                longitude
+            });
+            
+            if (response.data.success) {
+                setEmergency(prev => ({ ...prev, status: newStatus }));
+                toast.success(`Status updated to: ${newStatus}`);
+                
+                // Emit via socket
+                if (socket) {
+                    socket.emit('tracking_status_update', {
+                        emergencyId: id,
+                        status: newStatus,
+                        userId: user._id,
+                        userName: user.name
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Error updating status:', error);
+            toast.error('Failed to update status');
+        }
+    };
 
     if (loading) return <div className="p-8 text-center">Loading...</div>;
     if (!emergency) return <div className="p-8 text-center">Emergency not found</div>;
@@ -118,6 +260,7 @@ const EmergencyTracking = () => {
             case 'Searching': return 'text-yellow-600 bg-yellow-100';
             case 'Accepted': return 'text-blue-600 bg-blue-100';
             case 'On The Way': return 'text-purple-600 bg-purple-100';
+            case 'Arrived': return 'text-indigo-600 bg-indigo-100';
             case 'Completed': return 'text-green-600 bg-green-100';
             default: return 'text-gray-600 bg-gray-100';
         }
@@ -136,22 +279,7 @@ const EmergencyTracking = () => {
 
         setCompletingRescue(true);
         try {
-            const response = await api.put(`/emergency/${id}/status`, {
-                status: 'Completed'
-            });
-            
-            if (response.data.success) {
-                setEmergency(prev => ({ ...prev, status: 'Completed' }));
-                toast.success('Rescue marked as completed! Thank you for confirming.');
-                
-                // Emit socket event to notify volunteer
-                if (socket) {
-                    socket.emit('status_update', {
-                        emergencyId: id,
-                        status: 'Completed'
-                    });
-                }
-            }
+            await updateTrackingStatus('Completed');
         } catch (error) {
             console.error('Error completing rescue:', error);
             toast.error(error.response?.data?.message || 'Failed to complete rescue');
@@ -165,7 +293,8 @@ const EmergencyTracking = () => {
     if (emergency.location) {
         markers.push({
             position: emergency.location.coordinates.slice().reverse(), // [lat, lng]
-            popupText: 'Emergency Location'
+            popupText: 'Emergency Location',
+            icon: 'red'
         });
     }
     // Volunteer Marker - Use live location if available, else static
@@ -173,28 +302,77 @@ const EmergencyTracking = () => {
     if (volLoc) {
         markers.push({
             position: [volLoc[1], volLoc[0]], // [lat, lng]
-            popupText: `Volunteer: ${emergency.assignedVolunteer?.name || 'Volunteer'}`
+            popupText: `Volunteer: ${emergency.assignedVolunteer?.name || 'Volunteer'}`,
+            icon: 'blue'
         });
     }
 
+    // Format ETA display
+    const formatETA = (etaDate) => {
+        if (!etaDate) return 'Calculating...';
+        const now = new Date();
+        const diff = etaDate - now;
+        
+        if (diff <= 0) return 'Arriving soon';
+        
+        const minutes = Math.floor(diff / 60000);
+        if (minutes < 1) return 'Less than 1 min';
+        if (minutes < 60) return `${minutes} min`;
+        
+        const hours = Math.floor(minutes / 60);
+        const remainingMinutes = minutes % 60;
+        return `${hours}h ${remainingMinutes}m`;
+    };
+
     return (
         <div className="min-h-screen bg-gray-50 p-4">
-            <div className="max-w-4xl mx-auto space-y-4">
+            <div className="max-w-6xl mx-auto space-y-6">
                 {/* Header Status */}
-                <div className="bg-white p-6 rounded-xl shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
-                    <div>
+                <div className="bg-white p-6 rounded-xl shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                    <div className="flex-1">
                         <h1 className="text-2xl font-bold flex items-center gap-2">
                             <FaAmbulance className="text-red-600" />
                             {emergency.type} Emergency
                         </h1>
                         <p className="text-gray-500 text-sm">ID: {emergency._id}</p>
                     </div>
-                    <div className="flex flex-col sm:flex-row items-center gap-3">
+                    
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                         <div className={`px-4 py-2 rounded-full font-bold text-lg ${getStatusColor(emergency.status)}`}>
                             {emergency.status}
                         </div>
-                                                
-                        {/* Complete Rescue Button - Only for requester and when status is not completed */}
+                        
+                        {/* ETA Display */}
+                        {eta && emergency.status === 'On The Way' && (
+                            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg">
+                                <FaClock />
+                                <span className="font-medium">ETA: {formatETA(eta)}</span>
+                            </div>
+                        )}
+                        
+                        {/* Status Update Buttons for Volunteer */}
+                        {emergency.assignedVolunteer?._id === user._id && emergency.status !== 'Completed' && (
+                            <div className="flex flex-wrap gap-2">
+                                {emergency.status === 'Accepted' && (
+                                    <button
+                                        onClick={() => updateTrackingStatus('On The Way')}
+                                        className="flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm"
+                                    >
+                                        <FaRoute /> On The Way
+                                    </button>
+                                )}
+                                {emergency.status === 'On The Way' && (
+                                    <button
+                                        onClick={() => updateTrackingStatus('Arrived')}
+                                        className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm"
+                                    >
+                                        <FaLocationArrow /> Arrived
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                        
+                        {/* Complete Rescue Button - Only for requester */}
                         {emergency.requester?._id === user._id && emergency.status !== 'Completed' && (
                             <button
                                 onClick={completeRescue}
@@ -217,7 +395,7 @@ const EmergencyTracking = () => {
                                 )}
                             </button>
                         )}
-                                                
+                        
                         {/* Show confirmation when completed */}
                         {emergency.status === 'Completed' && (
                             <div className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 rounded-lg">
@@ -228,19 +406,25 @@ const EmergencyTracking = () => {
                     </div>
                 </div>
 
-                <div className="grid md:grid-cols-3 gap-4">
+                <div className="grid lg:grid-cols-3 gap-6">
                     {/* Main Map Area */}
-                    <div className="md:col-span-2 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                    <div className="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                        <h2 className="text-lg font-bold mb-4 text-gray-800">Live Tracking Map</h2>
                         <MapComponent
                             initialLocation={emergency.location.coordinates.slice().reverse()}
                             readOnly={true}
                             markers={markers}
-                            height="400px"
+                            height="500px"
+                            showRoute={volLoc && emergency.location?.coordinates}
+                            routePoints={volLoc ? [
+                                [emergency.location.coordinates[1], emergency.location.coordinates[0]], // requester [lat, lng]
+                                [volLoc[1], volLoc[0]] // volunteer [lat, lng]
+                            ] : []}
                         />
                     </div>
 
                     {/* Info Sidebar */}
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                         {/* Volunteer Info Card */}
                         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                             <h2 className="font-bold text-gray-700 mb-4 border-b pb-2">Assigned Volunteer</h2>
@@ -267,12 +451,40 @@ const EmergencyTracking = () => {
                             )}
                         </div>
 
+                        {/* Tracking Info Card */}
+                        {trackingData && (
+                            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                                <h2 className="font-bold text-gray-700 mb-4 border-b pb-2">Tracking Information</h2>
+                                <div className="space-y-3">
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Status Updates:</span>
+                                        <span className="font-medium">{trackingData.statusUpdates?.length || 0}</span>
+                                    </div>
+                                    {eta && (
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Estimated Arrival:</span>
+                                            <span className="font-medium text-blue-600">{formatETA(eta)}</span>
+                                        </div>
+                                    )}
+                                    {volunteerLocation && (
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Volunteer Location:</span>
+                                            <span className="font-medium text-green-600">Live</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Description Card */}
                         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                             <h2 className="font-bold text-gray-700 mb-2">Details</h2>
                             <p className="text-gray-600 italic">
                                 "{emergency.description || 'No description provided'}"
                             </p>
+                            <div className="mt-3 text-sm text-gray-500">
+                                <p>Location: {emergency.location?.address || 'Unknown'}</p>
+                            </div>
                         </div>
 
                         {/* Chat Box */}

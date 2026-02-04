@@ -275,7 +275,7 @@ exports.updateStatus = async (req, res) => {
         }
 
         // Validate status
-        const validStatuses = ['Searching', 'Accepted', 'On The Way', 'Completed'];
+        const validStatuses = ['Searching', 'Accepted', 'On The Way', 'Arrived', 'Completed', 'Cancelled'];
         if (!validStatuses.includes(status)) {
             return res.status(400).json({
                 success: false,
@@ -407,3 +407,238 @@ exports.getAssignedEmergencies = async (req, res) => {
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
+
+// @desc    Update volunteer location for tracking
+// @route   POST /api/emergency/:id/location
+// @access  Private (Volunteer)
+exports.updateVolunteerLocation = async (req, res) => {
+    try {
+        const { latitude, longitude, heading, speed, accuracy } = req.body;
+        const emergency = await Emergency.findById(req.params.id);
+
+        if (!emergency) {
+            return res.status(404).json({ success: false, message: 'Emergency not found' });
+        }
+
+        // Check if user is the assigned volunteer
+        if (emergency.assignedVolunteer?.toString() !== req.user.id) {
+            return res.status(403).json({ success: false, message: 'Not authorized to update this emergency' });
+        }
+
+        // Validate coordinates
+        const lat = parseFloat(latitude);
+        const lon = parseFloat(longitude);
+        if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+            return res.status(400).json({ success: false, message: 'Invalid coordinates' });
+        }
+
+        // Update or add volunteer location in tracking array
+        const locationEntry = {
+            userId: req.user.id,
+            location: {
+                type: 'Point',
+                coordinates: [lon, lat],
+                timestamp: new Date(),
+                heading: heading ? parseFloat(heading) : undefined,
+                speed: speed ? parseFloat(speed) : undefined,
+                accuracy: accuracy ? parseFloat(accuracy) : undefined
+            }
+        };
+
+        // Remove existing entry for this user if exists
+        emergency.tracking.volunteerLocations = emergency.tracking.volunteerLocations
+            .filter(loc => loc.userId.toString() !== req.user.id);
+
+        // Add new location entry
+        emergency.tracking.volunteerLocations.push(locationEntry);
+
+        // Calculate ETA if we have requester location
+        if (emergency.location && emergency.location.coordinates) {
+            const requesterCoords = emergency.location.coordinates; // [lng, lat]
+            const distance = calculateDistance(
+                lat, lon, 
+                requesterCoords[1], requesterCoords[0] // lat, lng
+            );
+            
+            // Estimate speed (assume walking speed ~1.4 m/s if not provided)
+            const currentSpeed = speed || 1.4;
+            const etaSeconds = distance / currentSpeed;
+            
+            emergency.tracking.estimatedArrivalTime = new Date(Date.now() + etaSeconds * 1000);
+        }
+
+        await emergency.save();
+
+        // Emit location update to requester via socket
+        const io = req.app.get('socketio');
+        if (io) {
+            io.to(emergency.requester.toString()).emit('volunteer_location_update', {
+                emergencyId: emergency._id,
+                volunteerId: req.user.id,
+                latitude: lat,
+                longitude: lon,
+                heading,
+                speed,
+                accuracy,
+                timestamp: new Date()
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Location updated successfully',
+            data: {
+                emergencyId: emergency._id,
+                location: { latitude: lat, longitude: lon },
+                eta: emergency.tracking.estimatedArrivalTime
+            }
+        });
+
+    } catch (error) {
+        console.error('Error updating volunteer location:', error);
+        res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    }
+};
+
+// @desc    Update emergency tracking status
+// @route   POST /api/emergency/:id/tracking-status
+// @access  Private (Volunteer/Requester)
+exports.updateTrackingStatus = async (req, res) => {
+    try {
+        const { status, latitude, longitude } = req.body;
+        const emergency = await Emergency.findById(req.params.id);
+
+        if (!emergency) {
+            return res.status(404).json({ success: false, message: 'Emergency not found' });
+        }
+
+        // Check if user is authorized (requester or assigned volunteer)
+        const isAuthorized = emergency.requester.toString() === req.user.id ||
+                           emergency.assignedVolunteer?.toString() === req.user.id;
+        
+        if (!isAuthorized) {
+            return res.status(403).json({ success: false, message: 'Not authorized to update this emergency' });
+        }
+
+        // Validate status
+        const validStatuses = ['Accepted', 'On The Way', 'Arrived', 'Completed', 'Cancelled'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid status',
+                validStatuses
+            });
+        }
+
+        // Add status update to tracking history
+        const statusUpdate = {
+            status,
+            timestamp: new Date(),
+            userId: req.user.id
+        };
+
+        if (latitude && longitude) {
+            const lat = parseFloat(latitude);
+            const lon = parseFloat(longitude);
+            if (!isNaN(lat) && !isNaN(lon)) {
+                statusUpdate.location = {
+                    type: 'Point',
+                    coordinates: [lon, lat]
+                };
+            }
+        }
+
+        emergency.tracking.statusUpdates.push(statusUpdate);
+
+        // Update main emergency status
+        emergency.status = status;
+        await emergency.save();
+
+        // Emit status update via socket
+        const io = req.app.get('socketio');
+        if (io) {
+            const recipientId = emergency.requester.toString() === req.user.id
+                ? emergency.assignedVolunteer?.toString()
+                : emergency.requester.toString();
+            
+            if (recipientId) {
+                io.to(recipientId).emit('tracking_status_update', {
+                    emergencyId: emergency._id,
+                    status,
+                    userId: req.user.id,
+                    userName: req.user.name,
+                    timestamp: new Date()
+                });
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `Status updated to ${status}`,
+            data: {
+                emergencyId: emergency._id,
+                status,
+                statusUpdate
+            }
+        });
+
+    } catch (error) {
+        console.error('Error updating tracking status:', error);
+        res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    }
+};
+
+// @desc    Get emergency tracking data
+// @route   GET /api/emergency/:id/tracking
+// @access  Private (Requester/Volunteer)
+exports.getTrackingData = async (req, res) => {
+    try {
+        const emergency = await Emergency.findById(req.params.id)
+            .populate('tracking.volunteerLocations.userId', 'name')
+            .populate('tracking.statusUpdates.userId', 'name');
+
+        if (!emergency) {
+            return res.status(404).json({ success: false, message: 'Emergency not found' });
+        }
+
+        // Check if user is authorized
+        const isAuthorized = emergency.requester.toString() === req.user.id ||
+                           emergency.assignedVolunteer?.toString() === req.user.id;
+        
+        if (!isAuthorized) {
+            return res.status(403).json({ success: false, message: 'Not authorized to view this emergency' });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: {
+                emergencyId: emergency._id,
+                volunteerLocations: emergency.tracking.volunteerLocations,
+                estimatedArrivalTime: emergency.tracking.estimatedArrivalTime,
+                route: emergency.tracking.route,
+                statusUpdates: emergency.tracking.statusUpdates,
+                currentStatus: emergency.status
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching tracking data:', error);
+        res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    }
+};
+
+// Helper function to calculate distance between two points (Haversine formula)
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371e3; // Earth radius in meters
+    const φ1 = lat1 * Math.PI/180;
+    const φ2 = lat2 * Math.PI/180;
+    const Δφ = (lat2-lat1) * Math.PI/180;
+    const Δλ = (lon2-lon1) * Math.PI/180;
+
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+    return R * c; // Distance in meters
+}
