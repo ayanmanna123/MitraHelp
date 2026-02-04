@@ -1,7 +1,7 @@
 const express = require('express');
 const { registerVolunteer, getVolunteerStatus, getVolunteerProgress } = require('../controllers/volunteer.controller');
 const { protect } = require('../middleware/authMiddleware');
-const upload = require('../middleware/uploadMiddleware');
+const { upload } = require('../middleware/uploadMiddleware');
 
 const router = express.Router();
 

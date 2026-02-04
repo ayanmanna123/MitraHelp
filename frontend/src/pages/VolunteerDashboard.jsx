@@ -70,6 +70,25 @@ const VolunteerDashboard = () => {
                             </p>
                             {/* Toggle availability button could go here */}
                         </div>
+                        
+                        {/* Face Verification Section */}
+                        <div className="p-4 border rounded-lg">
+                            <h3 className="font-semibold mb-2 flex items-center gap-2">
+                                <FaUserShield className="text-purple-500" /> Identity Verification
+                            </h3>
+                            
+                            <p className="text-gray-600 text-sm mb-3">
+                                Verify your identity with government ID and selfie
+                            </p>
+                            
+                            <Link 
+                                to="/face-verification" 
+                                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium text-sm inline-flex items-center gap-2"
+                            >
+                                Verify Identity
+                                <FaArrowRight className="text-xs" />
+                            </Link>
+                        </div>
                     </div>
                 </div>
 

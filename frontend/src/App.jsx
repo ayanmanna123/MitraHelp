@@ -23,6 +23,7 @@ import AdminPanel from "./pages/AdminPanel";
 import NearbyEmergencies from "./pages/NearbyEmergencies";
 import { SocketProvider } from "./context/SocketContext";
 import Navbar from "./components/shared/Navbar";
+import FaceVerification from "./components/FaceVerification";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -130,7 +131,7 @@ function App() {
                   }
                 />
                 <Route
-                  path="/volunteer/signup"
+                  path="/volunteer-signup"
                   element={
                     <ProtectedRoute>
                       <VolunteerSignup />
@@ -142,6 +143,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <AdminPanel />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/face-verification"
+                  element={
+                    <ProtectedRoute>
+                      <FaceVerification />
                     </ProtectedRoute>
                   }
                 />

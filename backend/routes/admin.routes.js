@@ -1,5 +1,5 @@
 const express = require('express');
-const { getVolunteers, approveVolunteer, rejectVolunteer } = require('../controllers/admin.controller');
+const { getVolunteers, approveVolunteer, rejectVolunteer, getFaceVerifications, updateFaceVerificationStatus } = require('../controllers/admin.controller');
 const { protect, admin } = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -12,5 +12,9 @@ router.use(admin);
 router.get('/volunteers', getVolunteers);
 router.post('/volunteers/:id/approve', approveVolunteer);
 router.post('/volunteers/:id/reject', rejectVolunteer);
+
+// Face verification management routes
+router.get('/face-verifications', getFaceVerifications);
+router.put('/face-verification/:id', updateFaceVerificationStatus);
 
 module.exports = router;

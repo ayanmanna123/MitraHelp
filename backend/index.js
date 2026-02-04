@@ -40,6 +40,7 @@ app.use('/api/emergency', require('./routes/emergency.routes'));
 app.use('/api/users', require('./routes/user.routes'));
 app.use('/api/volunteer', require('./routes/volunteer.routes'));
 app.use('/api/admin', require('./routes/admin.routes'));
+app.use('/api/face-verification', require('./routes/faceVerification.routes'));
 
 app.get('/', (req, res) => {
     res.send('MitraHelp Backend API is running...');

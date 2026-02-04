@@ -112,6 +112,20 @@ const userSchema = new mongoose.Schema({
             type: [String],
             default: ['personal_info', 'document_upload', 'verification']
         }
+    },
+    faceVerification: {
+        governmentIdImage: String,
+        selfieImage: String,
+        status: {
+            type: String,
+            enum: ['not_submitted', 'pending', 'verified', 'rejected'],
+            default: 'not_submitted'
+        },
+        matchScore: Number, // Face match score (0-1)
+        submittedAt: Date,
+        verifiedAt: Date,
+        adminReviewedAt: Date,
+        adminNotes: String
     }
 }, {
     timestamps: true

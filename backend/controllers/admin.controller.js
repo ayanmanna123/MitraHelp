@@ -12,8 +12,11 @@ exports.getVolunteers = async (req, res) => {
 
         const volunteers = await User.find({ 
             role: { $in: ['user', 'volunteer'] },
-            volunteerStatus: { $in: ['pending', 'approved', 'rejected'] }
-        }).select('name phone email volunteerStatus governmentIdImage selfieImage rejectionReason createdAt');
+            $or: [
+                { volunteerStatus: { $in: ['pending', 'approved', 'rejected'] }},
+                { 'faceVerification.status': { $in: ['pending', 'verified', 'rejected'] }}
+            ]
+        }).select('name phone email volunteerStatus governmentIdImage selfieImage rejectionReason createdAt faceVerification');
 
         res.status(200).json({
             success: true,
@@ -101,6 +104,81 @@ exports.rejectVolunteer = async (req, res) => {
             success: true,
             message: 'Volunteer rejected successfully',
             data: volunteer
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    }
+};
+
+// @desc    Get all users with face verification status
+// @route   GET /api/admin/face-verifications
+// @access  Private (Admin)
+exports.getFaceVerifications = async (req, res) => {
+    try {
+        // Check if user is admin
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Access denied. Admin only.' });
+        }
+
+        const users = await User.find({ 
+            'faceVerification.status': { $ne: 'not_submitted' }
+        }).select('name phone email faceVerification createdAt');
+
+        res.status(200).json({
+            success: true,
+            data: users
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    }
+};
+
+// @desc    Update face verification status
+// @route   PUT /api/admin/face-verification/:id
+// @access  Private (Admin)
+exports.updateFaceVerificationStatus = async (req, res) => {
+    try {
+        // Check if user is admin
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Access denied. Admin only.' });
+        }
+
+        const { status, adminNotes } = req.body;
+        
+        if (!status || !['verified', 'rejected'].includes(status)) {
+            return res.status(400).json({ success: false, message: 'Valid status (verified/rejected) is required' });
+        }
+
+        const user = await User.findById(req.params.id);
+        
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        if (!user.faceVerification) {
+            return res.status(400).json({ success: false, message: 'User has no face verification data' });
+        }
+
+        // Update verification status
+        user.faceVerification.status = status;
+        user.faceVerification.adminReviewedAt = new Date();
+        if (adminNotes) {
+            user.faceVerification.adminNotes = adminNotes;
+        }
+        
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: `Face verification ${status} successfully`,
+            data: {
+                userId: user._id,
+                status
+            }
         });
 
     } catch (error) {

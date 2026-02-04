@@ -30,41 +30,41 @@ const Navbar = () => {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            <Link 
-              to="/" 
+            <Link
+              to="/"
               className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
             >
               Home
             </Link>
-            
+
             {user && (
               <>
-                <Link 
-                  to="/dashboard" 
+                <Link
+                  to="/dashboard"
                   className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
                 >
                   Dashboard
                 </Link>
-                
+
                 {user.role === 'volunteer' && (
-                  <Link 
-                    to="/volunteer/profile" 
+                  <Link
+                    to="/volunteer/profile"
                     className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
                   >
                     My Profile
                   </Link>
                 )}
-                
-                <Link 
-                  to="/emergencies/nearby" 
+
+                <Link
+                  to="/emergencies/nearby"
                   className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
                 >
                   Nearby Emergencies
                 </Link>
-                
+
                 {user.role === 'admin' && (
-                  <Link 
-                    to="/admin" 
+                  <Link
+                    to="/admin"
                     className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
                   >
                     Admin Panel
@@ -76,7 +76,7 @@ const Navbar = () => {
             {/* Auth Buttons */}
             <div className="flex items-center space-x-4">
               {user ? (
-                <Button 
+                <Button
                   onClick={handleLogout}
                   variant="outline"
                   className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
@@ -88,7 +88,7 @@ const Navbar = () => {
                   <Link to="/login">
                     <Button variant="outline">Login</Button>
                   </Link>
-                  <Link to="/volunteer/signup">
+                  <Link to="/volunteer-signup">
                     <Button>Volunteer Signup</Button>
                   </Link>
                 </>
@@ -135,7 +135,7 @@ const Navbar = () => {
           >
             Home
           </Link>
-          
+
           {user && (
             <>
               <Link
@@ -145,7 +145,7 @@ const Navbar = () => {
               >
                 Dashboard
               </Link>
-              
+
               {user.role === 'volunteer' && (
                 <Link
                   to="/volunteer/profile"
@@ -155,7 +155,7 @@ const Navbar = () => {
                   My Profile
                 </Link>
               )}
-              
+
               <Link
                 to="/emergencies/nearby"
                 className="text-gray-700 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium"
@@ -163,7 +163,7 @@ const Navbar = () => {
               >
                 Nearby Emergencies
               </Link>
-              
+
               {user.role === 'admin' && (
                 <Link
                   to="/admin"
@@ -191,16 +191,16 @@ const Navbar = () => {
             ) : (
               <div className="space-y-3">
                 <Link to="/login" className="block">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="w-full"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Login
                   </Button>
                 </Link>
-                <Link to="/volunteer/signup" className="block">
-                  <Button 
+                <Link to="/volunteer-signup" className="block">
+                  <Button
                     className="w-full"
                     onClick={() => setIsMenuOpen(false)}
                   >
