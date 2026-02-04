@@ -9,6 +9,7 @@ A community-driven emergency response platform connecting people in need with ne
 - 📍 **Location-based Matching**: Uses GPS to find closest available volunteers
 - 🏠 **Permanent Address**: Volunteers provide permanent address for better notification coverage
 - 🗺️ **Map Selection**: Interactive map for precise location selection with automatic address conversion
+- 🌍 **Dual-location Notifications**: Alerts volunteers based on both current and permanent addresses
 - 💬 **Real-time Chat**: Built-in communication between users and volunteers
 - 📧 **Email Notifications**: Automated email alerts to volunteers with complete address info
 - 🔐 **User Authentication**: Secure login with phone verification

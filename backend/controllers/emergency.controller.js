@@ -65,8 +65,7 @@ exports.createEmergency = async (req, res) => {
 
         console.log('Emergency created successfully:', emergency._id);
 
-        // Find nearby volunteers (within 5km for example)
-        // Note: In production, radius should be dynamic or larger
+        // Find volunteers by current location (within 5km)
         const radiusInKm = 5;
         const nearbyVolunteers = await User.find({
             role: 'volunteer',
@@ -80,17 +79,48 @@ exports.createEmergency = async (req, res) => {
                     $maxDistance: radiusInKm * 1000 // meters
                 }
             }
-        }).select('name email location'); // Only select needed fields
+        }).select('name email location permanentAddress');
+
+        // Find volunteers by permanent address (within 15km for broader coverage)
+        const permanentAddressRadiusKm = 15;
+        const permanentAddressVolunteers = await User.find({
+            role: 'volunteer',
+            isAvailable: true,
+            'permanentAddress.coordinates': {
+                $near: {
+                    $geometry: {
+                        type: 'Point',
+                        coordinates: [parseFloat(longitude), parseFloat(latitude)]
+                    },
+                    $maxDistance: permanentAddressRadiusKm * 1000 // meters
+                }
+            }
+        }).select('name email location permanentAddress');
+
+        // Combine and deduplicate volunteers
+        const allVolunteers = [...nearbyVolunteers];
+        const nearbyVolunteerIds = new Set(nearbyVolunteers.map(v => v._id.toString()));
+        
+        // Add permanent address volunteers that aren't already in nearby list
+        permanentAddressVolunteers.forEach(vol => {
+            if (!nearbyVolunteerIds.has(vol._id.toString())) {
+                allVolunteers.push(vol);
+            }
+        });
+
+        console.log(`Found ${nearbyVolunteers.length} volunteers by current location`);
+        console.log(`Found ${permanentAddressVolunteers.length} volunteers by permanent address`);
+        console.log(`Total unique volunteers to notify: ${allVolunteers.length}`);
 
         // Add them to notified list (async update)
-        const volunteerIds = nearbyVolunteers.map(v => v._id);
-        emergency.volunteersNotified = volunteerIds;
+        const allVolunteerIds = allVolunteers.map(v => v._id);
+        emergency.volunteersNotified = allVolunteerIds;
         await emergency.save();
 
         // Emit Socket Event to Volunteers
         const io = req.app.get('socketio');
         if (io) {
-            volunteerIds.forEach(volId => {
+            allVolunteerIds.forEach(volId => {
                 io.to(volId.toString()).emit('new_emergency', {
                     emergencyId: emergency._id,
                     type: emergency.type,
@@ -100,16 +130,16 @@ exports.createEmergency = async (req, res) => {
             });
         }
 
-        // Send email notifications to volunteers
+        // Send email notifications to all volunteers
         let emailResults = null;
-        if (nearbyVolunteers.length > 0) {
+        if (allVolunteers.length > 0) {
             try {
                 // Get requester details
                 const requester = await User.findById(req.user.id).select('name');
                 
                 // Send emails
                 emailResults = await sendEmergencyNotifications(
-                    nearbyVolunteers,
+                    allVolunteers,
                     emergency,
                     requester
                 );
@@ -125,13 +155,17 @@ exports.createEmergency = async (req, res) => {
                 };
             }
         }
-
+            console.log("all volunteers found", allVolunteers.length)
         res.status(201).json({
             success: true,
             data: emergency,
-            volunteersFound: nearbyVolunteers.length,
+            volunteersFound: {
+                total: allVolunteers.length,
+                byCurrentLocation: nearbyVolunteers.length,
+                byPermanentAddress: permanentAddressVolunteers.length
+            },
             notifications: {
-                socket: 'Sent to connected volunteers',
+                socket: 'Sent to all connected volunteers',
                 email: emailResults || 'No volunteers found or email not configured'
             }
         });

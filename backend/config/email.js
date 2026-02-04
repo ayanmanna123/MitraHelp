@@ -2,7 +2,7 @@ const nodemailer = require('nodemailer');
 
 // Create transporter
 const createTransporter = () => {
-  return nodemailer.createTransporter({
+  return nodemailer.createTransport({
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
     port: process.env.EMAIL_PORT || 587,
     secure: false, // true for 465, false for other ports
@@ -52,7 +52,14 @@ const getEmailTemplate = (type, data) => {
                   <p><strong>Description:</strong> ${data.description}</p>
                   <p><strong>Current Location:</strong> ${data.address}</p>
                   <p><strong>Coordinates:</strong> ${data.latitude.toFixed(4)}, ${data.longitude.toFixed(4)}</p>
-                  ${data.permanentAddress ? `<p><strong>Permanent Address:</strong> ${data.permanentAddress}</p>` : ''}
+                  ${data.permanentAddress ? `<p><strong>Requester's Permanent Address:</strong> ${data.permanentAddress}</p>` : ''}
+                  ${data.notificationType ? `
+                  <div style="background: #eff6ff; padding: 10px; border-left: 3px solid #3b82f6; margin: 10px 0;">
+                    <strong>🔔 Notification Type:</strong> 
+                    ${data.notificationType === 'nearby' ? 'Based on your current location' : ''}
+                    ${data.notificationType === 'permanent_address' ? 'Based on your permanent address' : ''}
+                    ${data.notificationType === 'both' ? 'Based on both your current and permanent locations' : ''}
+                  </div>` : ''}
                   <p><strong>Distance from you:</strong> Approximately ${data.distance.toFixed(1)} km</p>
                   <p><strong>Reported by:</strong> ${data.requesterName}</p>
                 </div>
@@ -92,7 +99,7 @@ Type: ${data.emergencyType}
 Description: ${data.description}
 Current Location: ${data.address}
 Coordinates: ${data.latitude.toFixed(4)}, ${data.longitude.toFixed(4)}
-${data.permanentAddress ? `Permanent Address: ${data.permanentAddress}\n` : ''}Distance: Approximately ${data.distance.toFixed(1)} km
+${data.permanentAddress ? `Requester's Permanent Address: ${data.permanentAddress}\n` : ''}${data.notificationType ? `Notification Type: ${data.notificationType === 'nearby' ? 'Based on your current location' : data.notificationType === 'permanent_address' ? 'Based on your permanent address' : 'Based on both your current and permanent locations'}\n` : ''}Distance: Approximately ${data.distance.toFixed(1)} km
 Reported by: ${data.requesterName}
 Time: ${new Date().toLocaleString()}
 
