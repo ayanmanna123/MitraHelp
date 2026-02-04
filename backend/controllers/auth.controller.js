@@ -73,14 +73,15 @@ exports.googleLogin = async (req, res) => {
                 await user.save();
             }
         } else {
-            // Create new user, assume phone is missing initially
+            // Create new user, explicitly set phone to undefined to avoid unique index collision on null
             user = await User.create({
                 name,
                 email,
                 googleId,
                 profilePicture: picture,
                 isVerified: true, // Google emails are verified
-                role: 'user'
+                role: 'user',
+                phone: undefined // Explicitly undefined for sparse index
             });
             isNewUser = true;
         }
@@ -97,7 +98,13 @@ exports.googleLogin = async (req, res) => {
 
     } catch (error) {
         console.error("Google Auth Error:", error);
-        res.status(401).json({ success: false, message: 'Invalid Google Token', error: error.message });
+        console.error("Error Details:", JSON.stringify(error, null, 2)); // Log full error object
+        res.status(401).json({ 
+            success: false, 
+            message: 'Invalid Google Token', 
+            error: error.message,
+            details: error // Send details to frontend for easier debugging
+        });
     }
 };
 

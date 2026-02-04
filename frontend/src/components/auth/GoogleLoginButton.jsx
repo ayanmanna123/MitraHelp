@@ -37,7 +37,8 @@ const GoogleLoginButton = ({ text = "Continue with Google", className = "" }) =>
                 theme="filled_blue"
                 shape="pill"
                 text="continue_with"
-                width="100%"
+                
+                width="300"
             />
         </div>
     );
