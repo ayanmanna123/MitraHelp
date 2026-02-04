@@ -32,7 +32,7 @@ const NeedHelp = () => {
             if (response.data.success) {
                 setEmergencies(response.data.data);
                 // Find active emergency (not completed or cancelled)
-                const active = response.data.data.find(e => 
+                const active = response.data.data.find(e =>
                     e.status !== 'Completed' && e.status !== 'Cancelled'
                 );
                 setActiveEmergency(active || null);
@@ -45,12 +45,12 @@ const NeedHelp = () => {
     const handleRequestHelp = async (type) => {
         // Get current location if not available or invalid
         let latitude, longitude;
-        
-        if (!user?.location?.coordinates || 
+
+        if (!user?.location?.coordinates ||
             user.location.coordinates.length !== 2 ||
-            user.location.coordinates[0] === 0 || 
+            user.location.coordinates[0] === 0 ||
             user.location.coordinates[1] === 0) {
-            
+
             setUpdatingLocation(true);
             try {
                 const locationData = await getCurrentLocation();
@@ -70,7 +70,7 @@ const NeedHelp = () => {
             latitude = user.location.coordinates[1];
             longitude = user.location.coordinates[0];
         }
-        
+
         // Validate coordinates
         if (isNaN(latitude) || isNaN(longitude)) {
             toast.error('Invalid location coordinates. Please refresh your location.');
@@ -86,7 +86,7 @@ const NeedHelp = () => {
                 description: `Emergency request for ${type}`,
                 latitude: latitude,
                 longitude: longitude,
-                address: user.location.address || `Location: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
+                address: user?.location?.address || `Location: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
             });
 
             if (response.data.success) {
@@ -98,14 +98,14 @@ const NeedHelp = () => {
         } catch (error) {
             console.error('Error creating emergency:', error);
             console.error('Error response:', error.response?.data);
-            
-            const errorMessage = error.response?.data?.message || 
-                               error.response?.data?.error || 
-                               error.message || 
-                               'Failed to create emergency request';
-            
+
+            const errorMessage = error.response?.data?.message ||
+                error.response?.data?.error ||
+                error.message ||
+                'Failed to create emergency request';
+
             toast.error(`Emergency Error: ${errorMessage}`);
-            
+
             // Log detailed error info for debugging
             if (error.response?.data?.received) {
                 console.log('Received data:', error.response.data.received);
@@ -139,7 +139,7 @@ const NeedHelp = () => {
                             <FaAmbulance className="text-red-500" />
                             Need Help
                         </h1>
-                        <button 
+                        <button
                             onClick={() => navigate('/user-dashboard')}
                             className="text-gray-600 hover:text-red-600 font-medium"
                         >
@@ -159,13 +159,13 @@ const NeedHelp = () => {
                                 {activeEmergency.status}
                             </span>
                         </div>
-                        
+
                         <div className="grid md:grid-cols-2 gap-4 mb-4">
                             <div className="flex items-center gap-2">
                                 <FaMapMarkerAlt className="text-red-500" />
                                 <span className="text-gray-600">
-                                    {activeEmergency.location?.address || 
-                                     `${activeEmergency.location?.coordinates[1]?.toFixed(4)}, ${activeEmergency.location?.coordinates[0]?.toFixed(4)}`}
+                                    {activeEmergency.location?.address ||
+                                        `${activeEmergency.location?.coordinates[1]?.toFixed(4)}, ${activeEmergency.location?.coordinates[0]?.toFixed(4)}`}
                                 </span>
                             </div>
                             <div className="flex items-center gap-2">
@@ -216,7 +216,7 @@ const NeedHelp = () => {
                             {updatingLocation ? 'Updating...' : 'Refresh Location'}
                         </button>
                     </div>
-                    
+
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {emergencyTypes.map((type) => {
                             const IconComponent = type.icon;
@@ -225,9 +225,8 @@ const NeedHelp = () => {
                                     key={type.id}
                                     onClick={() => handleRequestHelp(type.id)}
                                     disabled={loading || activeEmergency}
-                                    className={`${type.bg} border border-gray-200 rounded-xl p-6 text-left hover:shadow-md transition-all duration-200 hover:border-red-300 ${
-                                        loading || activeEmergency ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'
-                                    }`}
+                                    className={`${type.bg} border border-gray-200 rounded-xl p-6 text-left hover:shadow-md transition-all duration-200 hover:border-red-300 ${loading || activeEmergency ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'
+                                        }`}
                                 >
                                     <div className="flex items-start gap-4">
                                         <div className={`p-3 rounded-lg ${type.bg}`}>
@@ -252,7 +251,7 @@ const NeedHelp = () => {
                     {activeEmergency && (
                         <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                             <p className="text-yellow-800 text-center">
-                                <span className="font-medium">Note:</span> You already have an active emergency request. 
+                                <span className="font-medium">Note:</span> You already have an active emergency request.
                                 Please wait for volunteer response or cancel the current request before creating a new one.
                             </p>
                         </div>
@@ -277,8 +276,8 @@ const NeedHelp = () => {
                         <h2 className="text-xl font-bold text-gray-800 mb-4">Your Recent Requests</h2>
                         <div className="space-y-3">
                             {emergencies.slice(0, 5).map((emergency) => (
-                                <div 
-                                    key={emergency._id} 
+                                <div
+                                    key={emergency._id}
                                     className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
                                     onClick={() => navigate(`/emergency/${emergency._id}`)}
                                 >
@@ -286,8 +285,8 @@ const NeedHelp = () => {
                                         <div>
                                             <h3 className="font-medium text-gray-800">{emergency.type} Emergency</h3>
                                             <p className="text-sm text-gray-600 mt-1">
-                                                {emergency.location?.address || 
-                                                 `${emergency.location?.coordinates[1]?.toFixed(4)}, ${emergency.location?.coordinates[0]?.toFixed(4)}`}
+                                                {emergency.location?.address ||
+                                                    `${emergency.location?.coordinates[1]?.toFixed(4)}, ${emergency.location?.coordinates[0]?.toFixed(4)}`}
                                             </p>
                                         </div>
                                         <div className="text-right">
