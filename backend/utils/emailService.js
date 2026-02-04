@@ -27,7 +27,7 @@ const sendEmail = async (to, templateType, data) => {
 
     const info = await transporter.sendMail(mailOptions);
     console.log('Email sent successfully to:', to, 'ID:', info.messageId);
-    
+
     return {
       success: true,
       messageId: info.messageId
@@ -50,24 +50,24 @@ const sendEmail = async (to, templateType, data) => {
  */
 const sendBulkEmails = async (recipients, templateType, data) => {
   const results = [];
-  
+
   for (const recipient of recipients) {
     const emailData = {
       ...data,
       volunteerName: recipient.name
     };
-    
+
     const result = await sendEmail(recipient.email, templateType, emailData);
     results.push({
       email: recipient.email,
       name: recipient.name,
       ...result
     });
-    
+
     // Add small delay to avoid rate limiting
     await new Promise(resolve => setTimeout(resolve, 100));
   }
-  
+
   return results;
 };
 
@@ -81,7 +81,7 @@ const sendBulkEmails = async (recipients, templateType, data) => {
 const sendEmergencyNotifications = async (volunteers, emergency, requester) => {
   try {
     // Filter volunteers with valid emails
-    const volunteersWithEmail = volunteers.filter(vol => 
+    const volunteersWithEmail = volunteers.filter(vol =>
       vol.email && vol.email.includes('@')
     );
 
@@ -145,8 +145,45 @@ const sendEmergencyNotifications = async (volunteers, emergency, requester) => {
   }
 };
 
+/**
+ * Send emergency alerts to personal contacts
+ * @param {Array} contacts - User's emergency contacts
+ * @param {object} emergency - Emergency details
+ * @param {object} user - User details
+ */
+const sendEmergencyAlertToContacts = async (contacts, emergency, user) => {
+  try {
+    if (!contacts || contacts.length === 0) return;
+
+    console.log(`Sending alerts to ${contacts.length} emergency contacts`);
+
+    const emailData = {
+      userName: user.name,
+      emergencyType: emergency.type,
+      description: emergency.description,
+      address: emergency.location?.address || 'Unknown Location',
+      latitude: emergency.location?.coordinates[1],
+      longitude: emergency.location?.coordinates[0],
+      mapLink: `https://www.google.com/maps?q=${emergency.location?.coordinates[1]},${emergency.location?.coordinates[0]}`
+    };
+
+    const recipients = contacts.map(c => ({ email: c.email, name: c.name }));
+
+    // We can reuse a generic template or create a specific one
+    // For now, let's use 'emergency_contact_alert' template type (need to support it in getEmailTemplate)
+    // Or reuse existing structure. Let's assume we handle it in `getEmailTemplate` or pass raw html here if needed.
+    // Actually best to stick to template structure.
+
+    await sendBulkEmails(recipients, 'emergency_contact_alert', emailData);
+
+  } catch (error) {
+    console.error("Error sending contact alerts:", error);
+  }
+};
+
 module.exports = {
   sendEmail,
   sendBulkEmails,
-  sendEmergencyNotifications
+  sendEmergencyNotifications,
+  sendEmergencyAlertToContacts
 };

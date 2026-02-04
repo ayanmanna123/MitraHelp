@@ -1,6 +1,6 @@
 import { useAuth } from '../context/AuthContext';
 import { useState, useEffect } from 'react';
-import { FaMapMarkerAlt, FaUserShield, FaArrowRight, FaAmbulance, FaLocationArrow, FaExclamationTriangle, FaHome, FaEdit, FaSave, FaTimes } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaUserShield, FaArrowRight, FaAmbulance, FaLocationArrow, FaExclamationTriangle, FaHome, FaEdit, FaSave, FaTimes, FaAddressBook, FaPlus, FaTrash, FaEnvelope, FaUser, FaHeart } from 'react-icons/fa';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -16,11 +16,20 @@ const UserDashboard = () => {
     const [permanentAddress, setPermanentAddress] = useState(user?.permanentAddress?.address || '');
     const [updatingProfile, setUpdatingProfile] = useState(false);
 
+    // Emergency Contacts State
+    const [newContact, setNewContact] = useState({ name: '', email: '', relation: 'Family' });
+    const [isAddingContact, setIsAddingContact] = useState(false);
+    const [contactLoading, setContactLoading] = useState(false);
+    const [contacts, setContacts] = useState(user?.emergencyContacts || []);
+
     useEffect(() => {
         if (user?.role === 'volunteer' || user?.role === 'user') {
-            fetchVolunteerProgress(); // Keep this in case they are applying
+            fetchVolunteerProgress();
             fetchActiveEmergencies();
             setPermanentAddress(user?.permanentAddress?.address || '');
+        }
+        if (user?.emergencyContacts) {
+            setContacts(user.emergencyContacts);
         }
     }, [user]);
 
@@ -30,7 +39,7 @@ const UserDashboard = () => {
             const response = await api.get('/emergency/user');
             if (response.data.success) {
                 // Filter for active (not completed) emergencies
-                const active = response.data.data.filter(em => 
+                const active = response.data.data.filter(em =>
                     em.status !== 'Completed'
                 );
                 setActiveEmergencies(active);
@@ -55,11 +64,10 @@ const UserDashboard = () => {
                     address: permanentAddress.trim()
                 }
             });
-            
+
             if (response.data.success) {
                 toast.success('Permanent address updated successfully');
                 setEditingAddress(false);
-                // Update auth context if needed
             }
         } catch (error) {
             console.error('Error updating address:', error);
@@ -77,6 +85,41 @@ const UserDashboard = () => {
             }
         } catch (error) {
             console.error('Error fetching volunteer progress:', error);
+        }
+    };
+
+    const handleAddContact = async (e) => {
+        e.preventDefault();
+        if (!newContact.name || !newContact.email) {
+            toast.error('Name and Email are required');
+            return;
+        }
+        setContactLoading(true);
+        try {
+            const response = await api.post('/users/emergency-contacts', newContact);
+            if (response.data.success) {
+                toast.success('Contact added successfully');
+                setContacts(response.data.data);
+                setIsAddingContact(false);
+                setNewContact({ name: '', email: '', relation: 'Family' });
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to add contact');
+        } finally {
+            setContactLoading(false);
+        }
+    };
+
+    const handleDeleteContact = async (contactId) => {
+        if (!window.confirm('Are you sure you want to remove this contact?')) return;
+        try {
+            const response = await api.delete(`/users/emergency-contacts/${contactId}`);
+            if (response.data.success) {
+                toast.success('Contact removed');
+                setContacts(response.data.data);
+            }
+        } catch (error) {
+            toast.error('Failed to remove contact');
         }
     };
 
@@ -106,7 +149,7 @@ const UserDashboard = () => {
                         </span>
                     </div>
 
-                    {/* Volunteer Application Status / Upsell - Removed as requested */}
+                    {/* Volunteer Application Status */}
                     {user?.volunteerStatus === 'not_applied' && (
                         <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-lg">
                             <div className="flex items-center justify-between">
@@ -121,7 +164,7 @@ const UserDashboard = () => {
                         </div>
                     )}
 
-                    {/* Show Progress if they started applying but are still on User dashboard */}
+                    {/* Application Pending Status */}
                     {user?.volunteerStatus !== 'approved' && user?.volunteerStatus !== 'not_applied' && (
                         <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-lg">
                             <div className="flex justify-between items-center mb-2">
@@ -138,6 +181,116 @@ const UserDashboard = () => {
                             </div>
                         </div>
                     )}
+
+                    {/* Emergency Contacts Section */}
+                    <div className="mb-6 p-4 border rounded-lg bg-white shadow-sm">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-semibold flex items-center gap-2 text-lg">
+                                <FaAddressBook className="text-blue-500" /> Emergency Contacts
+                            </h3>
+                            {!isAddingContact && (
+                                <button
+                                    onClick={() => setIsAddingContact(true)}
+                                    className="flex items-center gap-1 text-sm bg-blue-50 text-blue-600 px-3 py-1 rounded-full hover:bg-blue-100 font-medium"
+                                >
+                                    <FaPlus className="text-xs" /> Add Contact
+                                </button>
+                            )}
+                        </div>
+
+                        {isAddingContact && (
+                            <form onSubmit={handleAddContact} className="mb-4 bg-gray-50 p-4 rounded-lg border border-blue-100">
+                                <div className="grid md:grid-cols-3 gap-3 mb-3">
+                                    <div className="relative">
+                                        <FaUser className="absolute left-3 top-3 text-gray-400 text-sm" />
+                                        <input
+                                            type="text"
+                                            placeholder="Name"
+                                            value={newContact.name}
+                                            onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
+                                            className="w-full pl-9 p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                        />
+                                    </div>
+                                    <div className="relative">
+                                        <FaEnvelope className="absolute left-3 top-3 text-gray-400 text-sm" />
+                                        <input
+                                            type="email"
+                                            placeholder="Email Address"
+                                            value={newContact.email}
+                                            onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
+                                            className="w-full pl-9 p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                        />
+                                    </div>
+                                    <div className="relative">
+                                        <FaHeart className="absolute left-3 top-3 text-gray-400 text-sm" />
+                                        <select
+                                            value={newContact.relation}
+                                            onChange={(e) => setNewContact({ ...newContact, relation: e.target.value })}
+                                            className="w-full pl-9 p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                                        >
+                                            <option value="Family">Family</option>
+                                            <option value="Friend">Friend</option>
+                                            <option value="Colleague">Colleague</option>
+                                            <option value="Doctor">Doctor</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="flex justify-end gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsAddingContact(false)}
+                                        className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={contactLoading}
+                                        className="px-4 py-1.5 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-70 flex items-center gap-2"
+                                    >
+                                        {contactLoading ? 'Saving...' : 'Save Contact'}
+                                    </button>
+                                </div>
+                            </form>
+                        )}
+
+                        {contacts.length === 0 ? (
+                            <p className="text-gray-500 text-sm text-center py-4 bg-gray-50 rounded border border-dashed">
+                                No emergency contacts added yet. Add trusted contacts to notify them in emergencies.
+                            </p>
+                        ) : (
+                            <div className="grid md:grid-cols-2 gap-3">
+                                {contacts.map((contact) => (
+                                    <div key={contact._id} className="flex items-center justify-between p-3 border rounded-lg hover:border-blue-200 transition bg-gray-50/50">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs">
+                                                {contact.name.charAt(0)}
+                                            </div>
+                                            <div>
+                                                <p className="font-medium text-gray-800 text-sm">{contact.name}</p>
+                                                <p className="text-xs text-gray-500 flex items-center gap-1">
+                                                    <span className="bg-gray-200 px-1.5 rounded-[3px] text-[10px]">{contact.relation}</span>
+                                                    {contact.email}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => handleDeleteContact(contact._id)}
+                                            className="text-gray-400 hover:text-red-500 p-2 transition-colors"
+                                            title="Remove contact"
+                                        >
+                                            <FaTrash className="text-xs" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        <div className="mt-3 flex items-center gap-2 text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                            <FaExclamationTriangle />
+                            Note: These contacts will be notified immediately via Email when you report an emergency.
+                        </div>
+                    </div>
 
                     <div className="grid md:grid-cols-2 gap-4">
                         <div className="p-4 border rounded-lg">
@@ -175,7 +328,7 @@ const UserDashboard = () => {
                                 </p>
                             )}
                         </div>
-                        
+
                         {/* Permanent Address Section */}
                         <div className="p-4 border rounded-lg">
                             <div className="flex items-center justify-between mb-2">
@@ -213,7 +366,7 @@ const UserDashboard = () => {
                                     </div>
                                 )}
                             </div>
-                            
+
                             {editingAddress ? (
                                 <input
                                     type="text"
@@ -228,12 +381,12 @@ const UserDashboard = () => {
                                     {user?.permanentAddress?.address || 'Not set'}
                                 </p>
                             )}
-                            
+
                             <p className="text-xs text-gray-500 mt-2">
                                 Used for emergency notifications when you're not at your current location
                             </p>
                         </div>
-                        
+
                         {/* Face Verification Section */}
                         <div className="p-4 border rounded-lg">
                             <div className="flex items-center justify-between mb-2">
@@ -241,18 +394,18 @@ const UserDashboard = () => {
                                     <FaUserShield className="text-purple-500" /> Identity Verification
                                 </h3>
                             </div>
-                            
+
                             <p className="text-gray-600 text-sm mb-3">
-                                    Verify your identity with government ID and selfie
-                                </p>
-                                
-                                <Link 
-                                    to="/face-verification" 
-                                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium text-sm inline-flex items-center gap-2"
-                                >
-                                    Verify Identity
-                                    <FaArrowRight className="text-xs" />
-                                </Link>
+                                Verify your identity with government ID and selfie
+                            </p>
+
+                            <Link
+                                to="/face-verification"
+                                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium text-sm inline-flex items-center gap-2"
+                            >
+                                Verify Identity
+                                <FaArrowRight className="text-xs" />
+                            </Link>
                         </div>
                     </div>
                 </div>
@@ -269,10 +422,10 @@ const UserDashboard = () => {
                                 {activeEmergencies.length} ongoing
                             </span>
                         </div>
-                        
+
                         <div className="space-y-3">
                             {activeEmergencies.map((emergency) => (
-                                <div 
+                                <div
                                     key={emergency._id}
                                     className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition"
                                     onClick={() => navigate(`/emergency/${emergency._id}`)}
@@ -303,7 +456,7 @@ const UserDashboard = () => {
                 )}
 
                 <div className="grid md:grid-cols-1 gap-6">
-                    <div 
+                    <div
                         className="bg-red-50 border border-red-100 p-6 rounded-xl hover:shadow-md transition cursor-pointer hover:bg-red-100"
                         onClick={() => navigate('/need-help')}
                     >

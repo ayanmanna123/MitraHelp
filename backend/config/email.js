@@ -110,7 +110,35 @@ View Emergency: ${process.env.FRONTEND_URL || 'http://localhost:5173'}/volunteer
 This is an automated emergency notification from MitraHelp.
         `
       };
-    
+
+    case 'emergency_contact_alert':
+      return {
+        subject: `🚨 EMERGENCY ALERT: ${data.userName} needs help!`,
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; border: 1px solid #ddd; border-radius: 8px;">
+              <div style="background: #dc2626; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+                <h1>🚨 SOS ALERT</h1>
+              </div>
+              <div style="padding: 20px;">
+                <p><strong>${data.userName}</strong> has triggered an emergency alert.</p>
+                <div style="background: #ffe4e6; padding: 15px; border-left: 5px solid #dc2626; margin: 20px 0;">
+                    <h3 style="margin-top:0; color: #dc2626;">${data.emergencyType} Emergency</h3>
+                    <p>${data.description}</p>
+                    <p><strong>Location:</strong> ${data.address}</p>
+                    <a href="${data.mapLink}" style="display: inline-block; background: #dc2626; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 10px;">View Location on Map</a>
+                </div>
+                <p>Please try to contact them immediately.</p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `,
+        text: `SOS ALERT: ${data.userName} needs help!\n\nType: ${data.emergencyType}\nDescription: ${data.description}\nLocation: ${data.address}\n\nMap: ${data.mapLink}`
+      };
+
     default:
       return {
         subject: 'MitraHelp Notification',

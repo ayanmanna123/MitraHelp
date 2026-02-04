@@ -145,27 +145,27 @@ exports.getProfile = async (req, res) => {
 exports.updateProfile = async (req, res) => {
     try {
         const { name, permanentAddress } = req.body;
-        
+
         const updateData = {};
-        
+
         if (name) {
             updateData.name = name.trim();
         }
-        
+
         if (permanentAddress) {
             const { latitude, longitude, address } = permanentAddress;
-            
+
             if (latitude !== undefined && longitude !== undefined) {
                 const lat = parseFloat(latitude);
                 const lon = parseFloat(longitude);
-                
+
                 if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
                     return res.status(400).json({
                         success: false,
                         message: 'Invalid coordinate range for permanent address'
                     });
                 }
-                
+
                 updateData.permanentAddress = {
                     type: 'Point',
                     coordinates: [lon, lat],
@@ -176,7 +176,7 @@ exports.updateProfile = async (req, res) => {
                 updateData['permanentAddress.address'] = address;
             }
         }
-        
+
         const updatedUser = await User.findByIdAndUpdate(
             req.user.id,
             { $set: updateData },
@@ -217,5 +217,65 @@ exports.getCurrentLocation = async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    }
+};
+
+// @desc    Add emergency contact
+// @route   POST /api/users/emergency-contacts
+// @access  Private
+exports.addEmergencyContact = async (req, res) => {
+    try {
+        const { name, email, relation } = req.body;
+
+        if (!name || !email) {
+            return res.status(400).json({ success: false, message: 'Name and Email are required' });
+        }
+
+        const user = await User.findById(req.user.id);
+
+        if (!user.emergencyContacts) {
+            user.emergencyContacts = [];
+        }
+
+        // Check if limit reached (e.g., max 5 contacts)
+        if (user.emergencyContacts.length >= 5) {
+            return res.status(400).json({ success: false, message: 'You can add up to 5 emergency contacts.' });
+        }
+
+        user.emergencyContacts.push({ name, email, relation });
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Emergency contact added successfully',
+            data: user.emergencyContacts
+        });
+    } catch (error) {
+        console.error('Add contact error:', error);
+        res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    }
+};
+
+// @desc    Delete emergency contact
+// @route   DELETE /api/users/emergency-contacts/:contactId
+// @access  Private
+exports.deleteEmergencyContact = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+
+        user.emergencyContacts = user.emergencyContacts.filter(
+            contact => contact._id.toString() !== req.params.contactId
+        );
+
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Emergency contact removed',
+            data: user.emergencyContacts
+        });
+    } catch (error) {
+        console.error('Delete contact error:', error);
+        res.status(500).json({ success: false, message: 'Server Error' });
     }
 };

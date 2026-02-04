@@ -126,7 +126,21 @@ const userSchema = new mongoose.Schema({
         verifiedAt: Date,
         adminReviewedAt: Date,
         adminNotes: String
-    }
+    },
+    emergencyContacts: [{
+        name: {
+            type: String,
+            required: true
+        },
+        email: {
+            type: String,
+            required: true
+        },
+        relation: {
+            type: String,
+            default: 'Friend'
+        }
+    }]
 }, {
     timestamps: true
 });

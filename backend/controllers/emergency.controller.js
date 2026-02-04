@@ -100,7 +100,7 @@ exports.createEmergency = async (req, res) => {
         // Combine and deduplicate volunteers
         const allVolunteers = [...nearbyVolunteers];
         const nearbyVolunteerIds = new Set(nearbyVolunteers.map(v => v._id.toString()));
-        
+
         // Add permanent address volunteers that aren't already in nearby list
         permanentAddressVolunteers.forEach(vol => {
             if (!nearbyVolunteerIds.has(vol._id.toString())) {
@@ -133,29 +133,34 @@ exports.createEmergency = async (req, res) => {
         // Send email notifications to all volunteers
         let emailResults = null;
         if (allVolunteers.length > 0) {
+            let requester;
             try {
                 // Get requester details
-                const requester = await User.findById(req.user.id).select('name');
-                
-                // Send emails
+                // Get requester details with emergency contacts
+                requester = await User.findById(req.user.id).select('name permanentAddress emergencyContacts');
+
+                // Send emails to volunteers
                 emailResults = await sendEmergencyNotifications(
                     allVolunteers,
                     emergency,
                     requester
                 );
-                
+
                 console.log('Email notification results:', emailResults);
             } catch (emailError) {
                 console.error('Failed to send email notifications:', emailError.message);
-                // Don't fail the entire request if emails fail
-                emailResults = {
-                    success: false,
-                    error: emailError.message,
-                    emailsSent: 0
-                };
+                emailResults = { success: false, error: emailError.message, emailsSent: 0 };
+            }
+
+            // Notify Emergency Contacts
+            if (requester && requester.emergencyContacts && requester.emergencyContacts.length > 0) {
+                const { sendEmergencyAlertToContacts } = require('../utils/emailService');
+                sendEmergencyAlertToContacts(requester.emergencyContacts, emergency, requester)
+                    .then(() => console.log('Emergency contact alerts sent'))
+                    .catch(err => console.error('Failed to send contact alerts:', err));
             }
         }
-            console.log("all volunteers found", allVolunteers.length)
+        console.log("all volunteers found", allVolunteers.length)
         res.status(201).json({
             success: true,
             data: emergency,
@@ -272,18 +277,18 @@ exports.updateStatus = async (req, res) => {
         // Validate status
         const validStatuses = ['Searching', 'Accepted', 'On The Way', 'Completed'];
         if (!validStatuses.includes(status)) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Invalid status', 
-                validStatuses 
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid status',
+                validStatuses
             });
         }
 
         // Prevent reverting from Completed status
         if (emergency.status === 'Completed' && status !== 'Completed') {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Cannot change status once rescue is completed' 
+            return res.status(400).json({
+                success: false,
+                message: 'Cannot change status once rescue is completed'
             });
         }
 
@@ -308,8 +313,8 @@ exports.updateStatus = async (req, res) => {
             }
         }
 
-        res.status(200).json({ 
-            success: true, 
+        res.status(200).json({
+            success: true,
             data: emergency,
             message: `Emergency status updated to ${status}`
         });
