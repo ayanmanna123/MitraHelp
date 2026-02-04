@@ -7,13 +7,13 @@ const User = require('../models/user.model');
 exports.createEmergency = async (req, res) => {
     try {
         const { type, description, latitude, longitude, address } = req.body;
-        
+
         console.log('Emergency request body:', req.body);
         console.log('User ID:', req.user.id);
 
         if (!latitude || !longitude) {
-            return res.status(400).json({ 
-                success: false, 
+            return res.status(400).json({
+                success: false,
                 message: 'Location is required',
                 received: { latitude, longitude }
             });
@@ -22,18 +22,18 @@ exports.createEmergency = async (req, res) => {
         // Validate latitude and longitude
         const lat = parseFloat(latitude);
         const lon = parseFloat(longitude);
-        
+
         if (isNaN(lat) || isNaN(lon)) {
-            return res.status(400).json({ 
-                success: false, 
+            return res.status(400).json({
+                success: false,
                 message: 'Invalid latitude or longitude values',
                 received: { latitude, longitude }
             });
         }
 
         if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-            return res.status(400).json({ 
-                success: false, 
+            return res.status(400).json({
+                success: false,
                 message: 'Latitude must be between -90 and 90, longitude between -180 and 180',
                 received: { latitude: lat, longitude: lon }
             });
@@ -42,8 +42,8 @@ exports.createEmergency = async (req, res) => {
         // Validate emergency type
         const validTypes = ['Medical', 'Accident', 'Blood', 'Disaster', 'Other'];
         if (!validTypes.includes(type)) {
-            return res.status(400).json({ 
-                success: false, 
+            return res.status(400).json({
+                success: false,
                 message: 'Invalid emergency type',
                 validTypes
             });
@@ -199,7 +199,7 @@ exports.updateStatus = async (req, res) => {
         }
 
         // Only requester or assigned volunteer can update
-        if (emergency.requester.toString() !== req.user.id && 
+        if (emergency.requester.toString() !== req.user.id &&
             emergency.assignedVolunteer?.toString() !== req.user.id) {
             return res.status(403).json({ success: false, message: 'Not authorized' });
         }
@@ -210,10 +210,10 @@ exports.updateStatus = async (req, res) => {
         // Notify other party
         const io = req.app.get('socketio');
         if (io) {
-            const recipient = emergency.requester.toString() === req.user.id 
-                ? emergency.assignedVolunteer?.toString() 
+            const recipient = emergency.requester.toString() === req.user.id
+                ? emergency.assignedVolunteer?.toString()
                 : emergency.requester.toString();
-            
+
             if (recipient) {
                 io.to(recipient).emit('status_update', {
                     emergencyId: emergency._id,
@@ -225,6 +225,44 @@ exports.updateStatus = async (req, res) => {
         res.status(200).json({ success: true, data: emergency });
 
     } catch (error) {
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+// @desc    Get nearby emergencies
+// @route   GET /api/emergency/nearby
+// @access  Private
+exports.getNearbyEmergencies = async (req, res) => {
+    try {
+        const { latitude, longitude, radius } = req.query;
+
+        if (!latitude || !longitude) {
+            return res.status(400).json({ success: false, message: 'Latitude and longitude are required' });
+        }
+
+        const lat = parseFloat(latitude);
+        const lon = parseFloat(longitude);
+        const r = parseFloat(radius) || 5; // Default 5km
+
+        const emergencies = await Emergency.find({
+            status: 'Searching',
+            location: {
+                $near: {
+                    $geometry: {
+                        type: 'Point',
+                        coordinates: [lon, lat]
+                    },
+                    $maxDistance: r * 1000 // meters
+                }
+            }
+        }).populate('requester', 'name phone');
+
+        res.status(200).json({
+            success: true,
+            count: emergencies.length,
+            data: emergencies
+        });
+    } catch (error) {
+        console.error(error);
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };

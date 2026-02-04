@@ -20,6 +20,7 @@ import EmergencyTracking from "./pages/EmergencyTracking";
 import VolunteerProfile from "./pages/VolunteerProfile";
 import VolunteerSignup from "./pages/VolunteerSignup";
 import AdminPanel from "./pages/AdminPanel";
+import NearbyEmergencies from "./pages/NearbyEmergencies";
 import { SocketProvider } from "./context/SocketContext";
 
 // Protected Route Component
@@ -91,6 +92,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <VolunteerDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/volunteer/nearby"
+                  element={
+                    <ProtectedRoute>
+                      <NearbyEmergencies />
                     </ProtectedRoute>
                   }
                 />

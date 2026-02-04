@@ -79,10 +79,10 @@ const VolunteerDashboard = () => {
                         <p className="text-red-600">Get immediate assistance.</p>
                     </div>
 
-                    <div className="bg-blue-50 border border-blue-100 p-6 rounded-xl hover:shadow-md transition cursor-pointer">
+                    <Link to="/volunteer/nearby" className="bg-blue-50 border border-blue-100 p-6 rounded-xl hover:shadow-md transition cursor-pointer">
                         <h3 className="text-xl font-bold text-blue-800 mb-2">View Nearby Alerts</h3>
                         <p className="text-blue-600">See emergency requests in your area.</p>
-                    </div>
+                    </Link>
                 </div>
             </main>
         </div>
