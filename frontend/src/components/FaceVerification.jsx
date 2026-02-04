@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import api from '../services/api';
-import { performFaceComparison, simulateFaceComparison } from '../utils/faceVerification';
+// import { performFaceComparison, simulateFaceComparison } from '../utils/faceVerification';
 
 const FaceVerification = () => {
   const [governmentIdImage, setGovernmentIdImage] = useState(null);
@@ -14,6 +14,7 @@ const FaceVerification = () => {
   const [error, setError] = useState('');
   const [verificationStatus, setVerificationStatus] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [progress, setProgress] = useState(0); // For upload progress
   const [isCameraActive, setIsCameraActive] = useState(false);
   const navigate = useNavigate();
   const videoRef = useRef(null);
@@ -115,35 +116,31 @@ const FaceVerification = () => {
       formData.append('governmentId', governmentIdImage);
       formData.append('selfie', selfieImage);
 
-      // Upload images first
+      // Upload images first with progress tracking
       const uploadResponse = await api.post('/face-verification/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
+        },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setProgress(percentCompleted);
         }
       });
 
-      // Perform face comparison (this would happen in frontend with face-api.js)
-      let comparisonResult;
-      try {
-        comparisonResult = await performFaceComparison(governmentIdImage, selfieImage);
-      } catch (comparisonError) {
-        console.warn('Face comparison failed, using simulation:', comparisonError);
-        // Fallback to simulation if face comparison fails
-        comparisonResult = await simulateFaceComparison();
-      }
-
-      const { matchScore, isVerified } = comparisonResult;
-
-      // Send verification result to backend
-      await api.post('/face-verification/result', {
-        userId: uploadResponse.data.data.verificationId,
-        matchScore,
-        isVerified
+      // Reset progress and show processing
+      setProgress(0);
+      setIsProcessing(true);
+      
+      // Process face verification using Python backend
+      const processResponse = await api.post('/face-verification/process', {
+        verificationId: uploadResponse.data.data.verificationId
       });
 
+      const { matchScore, isVerified } = processResponse.data.data;
+
       setMessage(isVerified
-        ? 'Face verification successful! Your identity has been verified.'
-        : 'Face verification failed. Please try again with clearer images.');
+        ? `Face verification successful! Your identity has been verified. Match score: ${(matchScore * 100).toFixed(2)}%`
+        : `Face verification failed. Please try again with clearer images. Match score: ${(matchScore * 100).toFixed(2)}%`);
 
       // Refresh status
       fetchVerificationStatus();
@@ -158,6 +155,8 @@ const FaceVerification = () => {
       setError(err.response?.data?.message || 'An error occurred during face verification. Please try again.');
     } finally {
       setLoading(false);
+      setIsProcessing(false);
+      setProgress(0);
     }
   };
 
@@ -232,7 +231,27 @@ const FaceVerification = () => {
 
       {isProcessing && (
         <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
-          Processing your images... This may take a moment.
+          <div className="flex items-center">
+            <div className="mr-3">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-700"></div>
+            </div>
+            <span>Processing your images with Python AI... This may take 10-20 seconds.</span>
+          </div>
+        </div>
+      )}
+
+      {progress > 0 && progress < 100 && (
+        <div className="mb-4">
+          <div className="flex justify-between mb-1">
+            <span className="text-sm font-medium text-blue-700">Uploading images...</span>
+            <span className="text-sm font-medium text-blue-700">{progress}%</span>
+          </div>
+          <div className="w-full bg-blue-200 rounded-full h-2.5">
+            <div 
+              className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+              style={{ width: `${progress}%` }}
+            ></div>
+          </div>
         </div>
       )}
 

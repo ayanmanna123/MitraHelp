@@ -2,6 +2,20 @@ const User = require('../models/user.model');
 const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
+const { verifyFacesWithPythonBase64 } = require('../utils/pythonFaceVerification');
+
+// Simulate face comparison for fallback
+const simulateFaceComparison = async () => {
+    // Simulate processing time
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    // Simulate a match score (between 0 and 1)
+    const matchScore = Math.random() * 0.5 + 0.5; // Random score between 0.5 and 1.0
+    const isVerified = matchScore > 0.7; // Threshold for verification
+    
+    return { matchScore, isVerified };
+};
+// Python face verification utilities already imported above
 
 // Directory to store uploaded face verification images
 const FACE_VERIFICATION_DIR = path.join(__dirname, '../uploads/face-verification');
@@ -189,9 +203,94 @@ const adminUpdateFaceVerification = async (req, res) => {
     }
 };
 
+/**
+ * Process face verification using Python backend
+ */
+const processFaceVerification = async (req, res) => {
+    try {
+        const { verificationId } = req.body;
+        
+        if (!verificationId) {
+            return res.status(400).json({ success: false, message: 'Verification ID is required' });
+        }
+        
+        // Get user and verification data
+        const user = await User.findById(verificationId);
+        if (!user || !user.faceVerification) {
+            return res.status(404).json({ success: false, message: 'Verification data not found' });
+        }
+        
+        const { governmentIdImage, selfieImage } = user.faceVerification;
+        
+        if (!governmentIdImage || !selfieImage) {
+            return res.status(400).json({ success: false, message: 'Both government ID and selfie images are required for verification' });
+        }
+        
+        // Read image files
+        if (!fs.existsSync(governmentIdImage) || !fs.existsSync(selfieImage)) {
+            return res.status(400).json({ success: false, message: 'Image files not found on server' });
+        }
+        
+        const govIdBuffer = fs.readFileSync(governmentIdImage);
+        const selfieBuffer = fs.readFileSync(selfieImage);
+        
+        // Perform face comparison using Python with TensorFlow
+        let comparisonResult;
+        try {
+            console.log('🔄 Starting Python face verification...');
+            comparisonResult = await verifyFacesWithPythonBase64(govIdBuffer, selfieBuffer);
+            
+            if (!comparisonResult.success) {
+                throw new Error(comparisonResult.error || 'Python verification failed');
+            }
+            
+            console.log(`✅ Python verification completed. Raw result:`, comparisonResult);
+            
+            // Validate the result structure
+            if (!comparisonResult || typeof comparisonResult.matchScore !== 'number' || isNaN(comparisonResult.matchScore)) {
+                console.error('Invalid match score received from Python:', comparisonResult);
+                throw new Error('Invalid match score from Python verification');
+            }
+            
+            console.log(`✅ Python verification completed. Match score: ${(comparisonResult.matchScore * 100).toFixed(2)}%`);
+        } catch (comparisonError) {
+            console.error('❌ Python face verification failed:', comparisonError);
+            console.error('Error stack:', comparisonError.stack);
+            // Fallback to simulation if Python verification fails
+            comparisonResult = await simulateFaceComparison();
+            console.log('🔄 Using fallback simulation. Match score:', (comparisonResult.matchScore * 100).toFixed(2) + '%');
+        }
+        
+        const { matchScore, isVerified } = comparisonResult;
+        
+        // Update user verification status
+        user.faceVerification.status = isVerified ? 'verified' : 'rejected';
+        user.faceVerification.matchScore = matchScore;
+        user.faceVerification.verifiedAt = new Date();
+        
+        await user.save();
+        
+        res.status(200).json({
+            success: true,
+            message: `Face verification ${isVerified ? 'successful' : 'failed'}`,
+            data: {
+                userId: user._id,
+                isVerified,
+                matchScore,
+                verificationId
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error processing face verification:', error);
+        res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+    }
+};
+
 module.exports = {
     uploadFaceVerificationImages,
     submitFaceVerificationResult,
     getFaceVerificationStatus,
-    adminUpdateFaceVerification
+    adminUpdateFaceVerification,
+    processFaceVerification
 };

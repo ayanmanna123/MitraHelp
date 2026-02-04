@@ -62,6 +62,13 @@ const Navbar = () => {
                   Nearby Emergencies
                 </Link>
 
+                <Link
+                  to="/face-verification"
+                  className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                >
+                  Verify Identity
+                </Link>
+
                 {user.role === 'admin' && (
                   <Link
                     to="/admin"
@@ -162,6 +169,14 @@ const Navbar = () => {
                 onClick={() => setIsMenuOpen(false)}
               >
                 Nearby Emergencies
+              </Link>
+
+              <Link
+                to="/face-verification"
+                className="text-gray-700 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Verify Identity
               </Link>
 
               {user.role === 'admin' && (

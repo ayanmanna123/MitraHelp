@@ -4,7 +4,8 @@ const {
     uploadFaceVerificationImages,
     submitFaceVerificationResult,
     getFaceVerificationStatus,
-    adminUpdateFaceVerification
+    adminUpdateFaceVerification,
+    processFaceVerification
 } = require('../controllers/faceVerification.controller');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const { faceVerificationUpload } = require('../middleware/uploadMiddleware');
@@ -16,6 +17,7 @@ router.post('/upload', protect, faceVerificationUpload.fields([
 ]), uploadFaceVerificationImages);
 router.get('/status', protect, getFaceVerificationStatus);
 router.post('/result', protect, submitFaceVerificationResult);
+router.post('/process', protect, processFaceVerification); // New endpoint for Python-based verification
 
 // Admin routes
 router.put('/admin/update/:userId', protect, authorize('admin'), adminUpdateFaceVerification);
