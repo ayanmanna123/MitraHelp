@@ -23,6 +23,8 @@ app.use(cors({
     credentials: true
 }));
 
+app.use('/uploads', express.static('uploads'));
+
 // Cross-Origin-Opener-Policy for Google Auth popup
 app.use((req, res, next) => {
     res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
@@ -48,7 +50,7 @@ app.get('/', (req, res) => {
 
 // Socket.io setup
 const io = new Server(server, {
-    cors: { 
+    cors: {
         origin: "*",
         methods: ["GET", "POST"]
     }
@@ -87,7 +89,7 @@ io.on('connection', (socket) => {
         // data: { emergencyId, userId, role, latitude, longitude, heading, speed, accuracy }
         // Broadcast to everyone in the room EXCEPT the sender
         socket.to(data.emergencyId).emit('remote_location_update', data);
-        
+
         // Also emit to requester specifically for volunteer location updates
         if (data.role === 'volunteer') {
             socket.to(data.emergencyId).emit('volunteer_location_update', {
@@ -114,7 +116,7 @@ io.on('connection', (socket) => {
         // data: { emergencyId, userId, userName, role }
         socket.join(data.emergencyId);
         console.log(`User ${data.userName} (${data.role}) joined chat for emergency ${data.emergencyId}`);
-        
+
         // Notify others in the room
         socket.to(data.emergencyId).emit('user_joined_chat', {
             userId: data.userId,

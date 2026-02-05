@@ -1,6 +1,8 @@
 const Emergency = require('../models/emergency.model');
 const User = require('../models/user.model');
 const { sendEmergencyNotifications } = require('../utils/emailService');
+const fs = require('fs');
+const path = require('path');
 
 // @desc    Create new emergency request & Notify volunteers
 // @route   POST /api/emergency
@@ -11,6 +13,7 @@ exports.createEmergency = async (req, res) => {
 
         console.log('Emergency request body:', req.body);
         console.log('User ID:', req.user.id);
+        console.log('Files:', req.files);
 
         if (!latitude || !longitude) {
             return res.status(400).json({
@@ -50,6 +53,12 @@ exports.createEmergency = async (req, res) => {
             });
         }
 
+        // Handle uploaded images
+        let imageUrls = [];
+        if (req.files && req.files.length > 0) {
+            imageUrls = req.files.map(file => file.path);
+        }
+
         // Create Emergency
         const emergency = await Emergency.create({
             requester: req.user.id,
@@ -60,6 +69,7 @@ exports.createEmergency = async (req, res) => {
                 coordinates: [lon, lat],
                 address: address || `Location: ${lat.toFixed(4)}, ${lon.toFixed(4)}`
             },
+            images: imageUrls,
             status: 'Searching'
         });
 
@@ -460,14 +470,14 @@ exports.updateVolunteerLocation = async (req, res) => {
         if (emergency.location && emergency.location.coordinates) {
             const requesterCoords = emergency.location.coordinates; // [lng, lat]
             const distance = calculateDistance(
-                lat, lon, 
+                lat, lon,
                 requesterCoords[1], requesterCoords[0] // lat, lng
             );
-            
+
             // Estimate speed (assume walking speed ~1.4 m/s if not provided)
             const currentSpeed = speed || 1.4;
             const etaSeconds = distance / currentSpeed;
-            
+
             emergency.tracking.estimatedArrivalTime = new Date(Date.now() + etaSeconds * 1000);
         }
 
@@ -518,8 +528,8 @@ exports.updateTrackingStatus = async (req, res) => {
 
         // Check if user is authorized (requester or assigned volunteer)
         const isAuthorized = emergency.requester.toString() === req.user.id ||
-                           emergency.assignedVolunteer?.toString() === req.user.id;
-        
+            emergency.assignedVolunteer?.toString() === req.user.id;
+
         if (!isAuthorized) {
             return res.status(403).json({ success: false, message: 'Not authorized to update this emergency' });
         }
@@ -564,7 +574,7 @@ exports.updateTrackingStatus = async (req, res) => {
             const recipientId = emergency.requester.toString() === req.user.id
                 ? emergency.assignedVolunteer?.toString()
                 : emergency.requester.toString();
-            
+
             if (recipientId) {
                 io.to(recipientId).emit('tracking_status_update', {
                     emergencyId: emergency._id,
@@ -607,8 +617,8 @@ exports.getTrackingData = async (req, res) => {
 
         // Check if user is authorized
         const isAuthorized = emergency.requester.toString() === req.user.id ||
-                           emergency.assignedVolunteer?.toString() === req.user.id;
-        
+            emergency.assignedVolunteer?.toString() === req.user.id;
+
         if (!isAuthorized) {
             return res.status(403).json({ success: false, message: 'Not authorized to view this emergency' });
         }
@@ -634,15 +644,15 @@ exports.getTrackingData = async (req, res) => {
 // Helper function to calculate distance between two points (Haversine formula)
 function calculateDistance(lat1, lon1, lat2, lon2) {
     const R = 6371e3; // Earth radius in meters
-    const φ1 = lat1 * Math.PI/180;
-    const φ2 = lat2 * Math.PI/180;
-    const Δφ = (lat2-lat1) * Math.PI/180;
-    const Δλ = (lon2-lon1) * Math.PI/180;
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
 
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+        Math.cos(φ1) * Math.cos(φ2) *
+        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return R * c; // Distance in meters
 }

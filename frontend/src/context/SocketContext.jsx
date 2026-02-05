@@ -14,7 +14,7 @@ export const SocketProvider = ({ children }) => {
     useEffect(() => {
         if (user) {
             const newSocket = io(import.meta.env.VITE_API_URL.replace('/api', ''), {
-                transports: ['websocket'],
+                transports: ['polling', 'websocket'],
             });
 
             newSocket.on('connect', () => {

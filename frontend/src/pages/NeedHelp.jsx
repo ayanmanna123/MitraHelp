@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import EmergencyWithImages from '../components/inputs/EmergencyWithImages';
 import { FaAmbulance, FaMapMarkerAlt, FaClock, FaUserMd, FaCarCrash, FaTint, FaExclamationTriangle, FaEllipsisH, FaLocationArrow } from 'react-icons/fa';
 
 const NeedHelp = () => {
@@ -42,80 +43,14 @@ const NeedHelp = () => {
         }
     };
 
+    const [selectedEmergencyType, setSelectedEmergencyType] = useState(null);
+
     const handleRequestHelp = async (type) => {
-        // Get current location if not available or invalid
-        let latitude, longitude;
+        setSelectedEmergencyType(type);
+    };
 
-        if (!user?.location?.coordinates ||
-            user.location.coordinates.length !== 2 ||
-            user.location.coordinates[0] === 0 ||
-            user.location.coordinates[1] === 0) {
-
-            setUpdatingLocation(true);
-            try {
-                const locationData = await getCurrentLocation();
-                latitude = locationData.latitude;
-                longitude = locationData.longitude;
-                // Refresh user data to get updated location
-                await fetchUserEmergencies();
-            } catch (error) {
-                toast.error('Unable to get your location. Please enable location services.');
-                setUpdatingLocation(false);
-                return;
-            } finally {
-                setUpdatingLocation(false);
-            }
-        } else {
-            // Use existing valid location
-            latitude = user.location.coordinates[1];
-            longitude = user.location.coordinates[0];
-        }
-
-        // Validate coordinates
-        if (isNaN(latitude) || isNaN(longitude)) {
-            toast.error('Invalid location coordinates. Please refresh your location.');
-            return;
-        }
-
-        console.log('Creating emergency with location:', { latitude, longitude, type });
-
-        setLoading(true);
-        try {
-            const response = await api.post('/emergency', {
-                type,
-                description: `Emergency request for ${type}`,
-                latitude: latitude,
-                longitude: longitude,
-                address: user?.location?.address || `Location: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
-            });
-
-            if (response.data.success) {
-                toast.success('Emergency request sent! Volunteers are being notified.');
-                setActiveEmergency(response.data.data);
-                fetchUserEmergencies();
-                navigate(`/emergency/${response.data.data._id}`);
-            }
-        } catch (error) {
-            console.error('Error creating emergency:', error);
-            console.error('Error response:', error.response?.data);
-
-            const errorMessage = error.response?.data?.message ||
-                error.response?.data?.error ||
-                error.message ||
-                'Failed to create emergency request';
-
-            toast.error(`Emergency Error: ${errorMessage}`);
-
-            // Log detailed error info for debugging
-            if (error.response?.data?.received) {
-                console.log('Received data:', error.response.data.received);
-            }
-            if (error.response?.data?.validTypes) {
-                console.log('Valid types:', error.response.data.validTypes);
-            }
-        } finally {
-            setLoading(false);
-        }
+    const handleBackToSelection = () => {
+        setSelectedEmergencyType(null);
     };
 
     const getStatusColor = (status) => {
@@ -193,82 +128,103 @@ const NeedHelp = () => {
                     </div>
                 )}
 
-                {/* Emergency Type Selection */}
+                {/* Emergency Type Selection or Form */}
                 <div className="bg-white rounded-xl shadow p-6">
-                    <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-xl font-bold text-gray-800">What type of help do you need?</h2>
-                        <button
-                            onClick={async () => {
-                                setUpdatingLocation(true);
-                                try {
-                                    await getCurrentLocation();
-                                    toast.success('Location updated successfully');
-                                } catch (error) {
-                                    // Error already handled in getCurrentLocation
-                                } finally {
-                                    setUpdatingLocation(false);
-                                }
-                            }}
-                            disabled={updatingLocation}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <FaLocationArrow className={`${updatingLocation ? 'animate-spin' : ''}`} />
-                            {updatingLocation ? 'Updating...' : 'Refresh Location'}
-                        </button>
-                    </div>
-
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {emergencyTypes.map((type) => {
-                            const IconComponent = type.icon;
-                            return (
-                                <button
-                                    key={type.id}
-                                    onClick={() => handleRequestHelp(type.id)}
-                                    disabled={loading || activeEmergency}
-                                    className={`${type.bg} border border-gray-200 rounded-xl p-6 text-left hover:shadow-md transition-all duration-200 hover:border-red-300 ${loading || activeEmergency ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'
-                                        }`}
-                                >
-                                    <div className="flex items-start gap-4">
-                                        <div className={`p-3 rounded-lg ${type.bg}`}>
-                                            <IconComponent className={`text-2xl ${type.color}`} />
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold text-gray-800">{type.label}</h3>
-                                            <p className="text-sm text-gray-600 mt-1">
-                                                {type.id === 'Medical' && 'Medical assistance, ambulance, first aid'}
-                                                {type.id === 'Accident' && 'Vehicle accidents, injuries, rescue'}
-                                                {type.id === 'Blood' && 'Urgent blood donation required'}
-                                                {type.id === 'Disaster' && 'Earthquake, flood, fire, etc.'}
-                                                {type.id === 'Other' && 'Any other emergency situation'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </button>
-                            );
-                        })}
-                    </div>
-
-                    {activeEmergency && (
-                        <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                            <p className="text-yellow-800 text-center">
-                                <span className="font-medium">Note:</span> You already have an active emergency request.
-                                Please wait for volunteer response or cancel the current request before creating a new one.
-                            </p>
-                        </div>
-                    )}
-
-                    {loading && (
-                        <div className="mt-6 text-center">
-                            <div className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg">
-                                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                Sending emergency request...
+                    {selectedEmergencyType ? (
+                        <div>
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                    <button 
+                                        onClick={handleBackToSelection}
+                                        className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
+                                    >
+                                        ← Back
+                                    </button>
+                                    Creating {selectedEmergencyType} Emergency
+                                </h2>
                             </div>
+                            
+                            {/* Import and use the new component */}
+                            <EmergencyWithImages emergencyType={selectedEmergencyType} />
                         </div>
+                    ) : (
+                        <>
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-xl font-bold text-gray-800">What type of help do you need?</h2>
+                                <button
+                                    onClick={async () => {
+                                        setUpdatingLocation(true);
+                                        try {
+                                            await getCurrentLocation();
+                                            toast.success('Location updated successfully');
+                                        } catch (error) {
+                                            // Error already handled in getCurrentLocation
+                                        } finally {
+                                            setUpdatingLocation(false);
+                                        }
+                                    }}
+                                    disabled={updatingLocation}
+                                    className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <FaLocationArrow className={`${updatingLocation ? 'animate-spin' : ''}`} />
+                                    {updatingLocation ? 'Updating...' : 'Refresh Location'}
+                                </button>
+                            </div>
+
+                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {emergencyTypes.map((type) => {
+                                    const IconComponent = type.icon;
+                                    return (
+                                        <button
+                                            key={type.id}
+                                            onClick={() => handleRequestHelp(type.id)}
+                                            disabled={loading || activeEmergency}
+                                            className={`${type.bg} border border-gray-200 rounded-xl p-6 text-left hover:shadow-md transition-all duration-200 hover:border-red-300 ${loading || activeEmergency ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'
+                                                }`}
+                                        >
+                                            <div className="flex items-start gap-4">
+                                                <div className={`p-3 rounded-lg ${type.bg}`}>
+                                                    <IconComponent className={`text-2xl ${type.color}`} />
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-semibold text-gray-800">{type.label}</h3>
+                                                    <p className="text-sm text-gray-600 mt-1">
+                                                        {type.id === 'Medical' && 'Medical assistance, ambulance, first aid'}
+                                                        {type.id === 'Accident' && 'Vehicle accidents, injuries, rescue'}
+                                                        {type.id === 'Blood' && 'Urgent blood donation required'}
+                                                        {type.id === 'Disaster' && 'Earthquake, flood, fire, etc.'}
+                                                        {type.id === 'Other' && 'Any other emergency situation'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </>
                     )}
                 </div>
+
+                {activeEmergency && (
+                    <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <p className="text-yellow-800 text-center">
+                            <span className="font-medium">Note:</span> You already have an active emergency request.
+                            Please wait for volunteer response or cancel the current request before creating a new one.
+                        </p>
+                    </div>
+                )}
+
+                {loading && (
+                    <div className="mt-6 text-center">
+                        <div className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg">
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Sending emergency request...
+                        </div>
+                    </div>
+                )}
 
                 {/* Recent Emergencies */}
                 {emergencies.length > 0 && (

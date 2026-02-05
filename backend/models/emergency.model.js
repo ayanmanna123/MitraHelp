@@ -47,6 +47,10 @@ const emergencySchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Review'
     }],
+    images: [{
+        type: String, // URLs for emergency images
+        default: []
+    }],
     // Tracking fields for real-time location updates
     tracking: {
         volunteerLocations: [{

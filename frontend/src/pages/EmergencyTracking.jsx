@@ -6,8 +6,9 @@ import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import ChatBox from '../components/ChatBox';
 import { toast } from 'react-hot-toast';
-import { FaPhoneAlt, FaUserShield, FaAmbulance, FaCheckCircle, FaSpinner, FaLocationArrow, FaRoute, FaClock, FaStar, FaRegStar, FaStarHalfAlt } from 'react-icons/fa';
+import { FaPhoneAlt, FaUserShield, FaAmbulance, FaCheckCircle, FaSpinner, FaLocationArrow, FaRoute, FaClock, FaStar, FaRegStar, FaStarHalfAlt, FaImage } from 'react-icons/fa';
 import ReviewModal from '../components/shared/ReviewModal';
+import EmergencyImageGallery from '../components/shared/EmergencyImageGallery';
 
 const EmergencyTracking = () => {
     const { id } = useParams();
@@ -513,6 +514,14 @@ const EmergencyTracking = () => {
                             <div className="mt-3 text-sm text-gray-500">
                                 <p>Location: {emergency.location?.address || 'Unknown'}</p>
                             </div>
+                            
+                            {/* Emergency Images */}
+                            {emergency.images && emergency.images.length > 0 && (
+                                <EmergencyImageGallery 
+                                    images={emergency.images} 
+                                    emergencyTitle={`${emergency.type} Emergency`} 
+                                />
+                            )}
                         </div>
 
                         {/* Chat Box */}
