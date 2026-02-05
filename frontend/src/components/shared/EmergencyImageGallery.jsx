@@ -16,11 +16,12 @@ const EmergencyImageGallery = ({ images = [], emergencyTitle = "Emergency", fetc
             fetchAllEmergencyImages();
         } else {
             // Use provided images
-            setAllImages(images.map((img, index) => ({
+            const mappedImages = images.map((img, index) => ({
                 url: img,
                 emergencyType: emergencyTitle,
                 description: `Image ${index + 1}`
-            })));
+            }));
+            setAllImages(mappedImages);
         }
     }, [fetchAllImages, images, emergencyTitle]);
 
@@ -44,13 +45,25 @@ const EmergencyImageGallery = ({ images = [], emergencyTitle = "Emergency", fetc
     const getFullUrl = (url) => {
         if (!url) return '';
         if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:')) return url;
+
         // Use the Vite environment variable for API URL or default
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
         // Remove /api suffix if present to get base URL
         const baseUrl = apiUrl.replace('/api', '');
+
         // Normalize path (handle Windows backslashes)
-        const cleanUrl = url.replace(/\\/g, '/');
-        return `${baseUrl}${cleanUrl.startsWith('/') ? '' : '/'}${cleanUrl}`;
+        let cleanUrl = url.replace(/\\/g, '/');
+
+        // Handle potential absolute paths by stripping everything before 'uploads/'
+        if (cleanUrl.includes('uploads/')) {
+            cleanUrl = cleanUrl.substring(cleanUrl.indexOf('uploads/'));
+        }
+
+        // Ensure regular paths that don't start with uploads (and are likely local filenames) get mapped correctly if needed
+        // But for now, just fix the absolute path issue.
+
+        const finalUrl = `${baseUrl}${cleanUrl.startsWith('/') ? '' : '/'}${cleanUrl}`;
+        return finalUrl;
     };
 
     const openImage = (index) => {
@@ -169,71 +182,86 @@ const EmergencyImageGallery = ({ images = [], emergencyTitle = "Emergency", fetc
                             <div className="absolute top-1 left-1 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded truncate max-w-[80%]">
                                 {imageData.emergencyType}
                             </div>
+                            {/* External Link for Debugging */}
+                            <a
+                                href={finalUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="absolute top-1 right-1 bg-white bg-opacity-75 hover:bg-opacity-100 p-1 rounded-full text-blue-600 z-10 transition-all"
+                                onClick={(e) => e.stopPropagation()}
+                                title="Open original image"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                            </a>
                         </div>
                     );
                 })}
             </div>
 
             {/* Fullscreen Gallery */}
-            {isFullscreen && currentImageIndex !== null && (
-                <div
-                    className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
-                    onClick={closeGallery}
-                    onKeyDown={handleKeyDown}
-                    tabIndex={0}
-                >
+            {
+                isFullscreen && currentImageIndex !== null && (
                     <div
-                        className="relative max-w-6xl max-h-full w-full"
-                        onClick={(e) => e.stopPropagation()}
+                        className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
+                        onClick={closeGallery}
+                        onKeyDown={handleKeyDown}
+                        tabIndex={0}
                     >
-                        <button
-                            onClick={closeGallery}
-                            className="absolute top-4 right-4 text-white text-2xl z-10 hover:text-gray-300"
+                        <div
+                            className="relative max-w-6xl max-h-full w-full"
+                            onClick={(e) => e.stopPropagation()}
                         >
-                            <FaTimes />
-                        </button>
+                            <button
+                                onClick={closeGallery}
+                                className="absolute top-4 right-4 text-white text-2xl z-10 hover:text-gray-300"
+                            >
+                                <FaTimes />
+                            </button>
 
-                        <button
-                            onClick={prevImage}
-                            className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white text-2xl z-10 hover:text-gray-300"
-                        >
-                            <FaChevronLeft />
-                        </button>
+                            <button
+                                onClick={prevImage}
+                                className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white text-2xl z-10 hover:text-gray-300"
+                            >
+                                <FaChevronLeft />
+                            </button>
 
-                        <button
-                            onClick={nextImage}
-                            className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white text-2xl z-10 hover:text-gray-300"
-                        >
-                            <FaChevronRight />
-                        </button>
+                            <button
+                                onClick={nextImage}
+                                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white text-2xl z-10 hover:text-gray-300"
+                            >
+                                <FaChevronRight />
+                            </button>
 
-                        <div className="flex items-center justify-center h-full">
-                            <img
-                                src={getFullUrl(allImages[currentImageIndex]?.url)}
-                                alt={`${allImages[currentImageIndex]?.emergencyType || emergencyTitle} image ${currentImageIndex + 1}`}
-                                className="max-h-[80vh] max-w-[90vw] object-contain"
-                                onError={(e) => {
-                                    e.target.src = '/placeholder-image.jpg';
-                                    e.target.alt = 'Image not available';
-                                }}
-                            />
-                        </div>
-
-                        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white text-sm text-center">
-                            <div>{currentImageIndex + 1} of {allImages.length}</div>
-                            <div className="text-xs mt-1">
-                                {allImages[currentImageIndex]?.emergencyType} - {allImages[currentImageIndex]?.requester}
+                            <div className="flex items-center justify-center h-full">
+                                <img
+                                    src={getFullUrl(allImages[currentImageIndex]?.url)}
+                                    alt={`${allImages[currentImageIndex]?.emergencyType || emergencyTitle} image ${currentImageIndex + 1}`}
+                                    className="max-h-[80vh] max-w-[90vw] object-contain"
+                                    onError={(e) => {
+                                        e.target.src = '/placeholder-image.jpg';
+                                        e.target.alt = 'Image not available';
+                                    }}
+                                />
                             </div>
-                            {allImages[currentImageIndex]?.description && (
-                                <div className="text-xs mt-1 max-w-md">
-                                    {allImages[currentImageIndex]?.description}
+
+                            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white text-sm text-center">
+                                <div>{currentImageIndex + 1} of {allImages.length}</div>
+                                <div className="text-xs mt-1">
+                                    {allImages[currentImageIndex]?.emergencyType} - {allImages[currentImageIndex]?.requester}
                                 </div>
-                            )}
+                                {allImages[currentImageIndex]?.description && (
+                                    <div className="text-xs mt-1 max-w-md">
+                                        {allImages[currentImageIndex]?.description}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 
