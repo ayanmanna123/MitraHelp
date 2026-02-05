@@ -1,12 +1,13 @@
 const express = require('express');
 const uploadEmergencyImages = require('../middleware/uploadEmergencyImages');
-const { createEmergency, getEmergency, acceptEmergency, updateStatus, getUserEmergencies, getNearbyEmergencies, getAssignedEmergencies, updateVolunteerLocation, updateTrackingStatus, getTrackingData } = require('../controllers/emergency.controller');
+const { createEmergency, getEmergency, acceptEmergency, updateStatus, getUserEmergencies, getNearbyEmergencies, getAssignedEmergencies, updateVolunteerLocation, updateTrackingStatus, getTrackingData, getAllEmergencies } = require('../controllers/emergency.controller');
 const { submitReview, getReviewsForVolunteer, getReviewsByRequester } = require('../controllers/reviewController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
 router.post('/', protect, uploadEmergencyImages.array('images', 5), createEmergency);
+router.get('/all', getAllEmergencies); // Public endpoint for gallery
 router.get('/nearby', protect, getNearbyEmergencies);
 router.get('/assigned', protect, getAssignedEmergencies);
 router.get('/user', protect, getUserEmergencies);

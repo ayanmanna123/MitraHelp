@@ -641,6 +641,75 @@ exports.getTrackingData = async (req, res) => {
     }
 };
 
+// @desc    Get all emergencies with images (for gallery)
+// @route   GET /api/emergency/all
+// @access  Public
+exports.getAllEmergencies = async (req, res) => {
+    try {
+        // Optional query parameters
+        const { type, status, limit = 50, page = 1 } = req.query;
+        
+        // Build filter object
+        const filter = {};
+        
+        if (type) {
+            filter.type = type;
+        }
+        
+        if (status) {
+            filter.status = status;
+        }
+        
+        // Only show emergencies with images
+        filter.images = { $exists: true, $ne: [] };
+        
+        const skip = (page - 1) * limit;
+        
+        const emergencies = await Emergency.find(filter)
+            .populate('requester', 'name')
+            .sort({ createdAt: -1 })
+            .limit(parseInt(limit))
+            .skip(skip);
+        
+        const total = await Emergency.countDocuments(filter);
+        
+        // Extract all images from emergencies
+        const allImages = [];
+        emergencies.forEach(emergency => {
+            if (emergency.images && emergency.images.length > 0) {
+                emergency.images.forEach((image, index) => {
+                    allImages.push({
+                        url: image,
+                        emergencyId: emergency._id,
+                        emergencyType: emergency.type,
+                        description: emergency.description,
+                        createdAt: emergency.createdAt,
+                        requester: emergency.requester?.name || 'Anonymous',
+                        imageIndex: index
+                    });
+                });
+            }
+        });
+        
+        res.status(200).json({
+            success: true,
+            data: allImages,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages: Math.ceil(total / limit),
+                totalEmergencies: total,
+                totalImages: allImages.length,
+                hasNext: page < Math.ceil(total / limit),
+                hasPrev: page > 1
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching all emergencies:', error);
+        res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    }
+};
+
 // Helper function to calculate distance between two points (Haversine formula)
 function calculateDistance(lat1, lon1, lat2, lon2) {
     const R = 6371e3; // Earth radius in meters

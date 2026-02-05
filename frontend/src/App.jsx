@@ -21,6 +21,7 @@ import VolunteerProfile from "./pages/VolunteerProfile";
 import VolunteerSignup from "./pages/VolunteerSignup";
 import AdminPanel from "./pages/AdminPanel";
 import NearbyEmergencies from "./pages/NearbyEmergencies";
+import EmergencyImageGalleryPage from "./pages/EmergencyImageGalleryPage";
 import { SocketProvider } from "./context/SocketContext";
 import Navbar from "./components/shared/Navbar";
 import FaceVerification from "./components/FaceVerification";
@@ -153,6 +154,10 @@ function App() {
                       <FaceVerification />
                     </ProtectedRoute>
                   }
+                />
+                <Route
+                  path="/emergency-gallery"
+                  element={<EmergencyImageGalleryPage />}
                 />
               </Routes>
             </div>
