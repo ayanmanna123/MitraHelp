@@ -197,8 +197,8 @@ exports.createEmergency = async (req, res) => {
 exports.getEmergency = async (req, res) => {
     try {
         const emergency = await Emergency.findById(req.params.id)
-            .populate('requester', 'name phone location')
-            .populate('assignedVolunteer', 'name phone location')
+            .populate('requester', 'name phone location bloodGroup profilePicture')
+            .populate('assignedVolunteer', 'name phone location profilePicture averageRating totalReviews')
             .populate('reviews');
 
         if (!emergency) {
@@ -362,7 +362,7 @@ exports.getNearbyEmergencies = async (req, res) => {
                     $maxDistance: r * 1000 // meters
                 }
             }
-        }).populate('requester', 'name phone');
+        }).populate('requester', 'name phone profilePicture bloodGroup');
 
         res.status(200).json({
             success: true,
@@ -386,7 +386,7 @@ exports.getAssignedEmergencies = async (req, res) => {
             assignedVolunteer: req.user.id,
             status: { $in: ['Accepted', 'On The Way'] } // Only active ones primarily
         })
-            .populate('requester', 'name phone')
+            .populate('requester', 'name phone profilePicture bloodGroup')
             .populate('reviews')
             .sort({ updatedAt: -1 });
 
@@ -404,7 +404,7 @@ exports.getAssignedEmergencies = async (req, res) => {
         const recentEmergency = await Emergency.findOne({
             assignedVolunteer: req.user.id
         })
-            .populate('requester', 'name phone')
+            .populate('requester', 'name phone profilePicture bloodGroup')
             .populate('reviews')
             .sort({ updatedAt: -1 });
 
@@ -648,31 +648,31 @@ exports.getAllEmergencies = async (req, res) => {
     try {
         // Optional query parameters
         const { type, status, limit = 50, page = 1 } = req.query;
-        
+
         // Build filter object
         const filter = {};
-        
+
         if (type) {
             filter.type = type;
         }
-        
+
         if (status) {
             filter.status = status;
         }
-        
+
         // Only show emergencies with images
         filter.images = { $exists: true, $ne: [] };
-        
+
         const skip = (page - 1) * limit;
-        
+
         const emergencies = await Emergency.find(filter)
             .populate('requester', 'name')
             .sort({ createdAt: -1 })
             .limit(parseInt(limit))
             .skip(skip);
-        
+
         const total = await Emergency.countDocuments(filter);
-        
+
         // Extract all images from emergencies
         const allImages = [];
         emergencies.forEach(emergency => {
@@ -690,7 +690,7 @@ exports.getAllEmergencies = async (req, res) => {
                 });
             }
         });
-        
+
         res.status(200).json({
             success: true,
             data: allImages,

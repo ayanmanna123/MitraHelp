@@ -126,10 +126,10 @@ const EmergencyTracking = () => {
             locationWatchId.current = navigator.geolocation.watchPosition(
                 async (position) => {
                     const { latitude, longitude, heading, speed, accuracy } = position.coords;
-                    
+
                     // Update local state immediately for smooth UI updates
                     setVolunteerLocation([longitude, latitude]);
-                    
+
                     try {
                         // Send to backend
                         await api.post(`/emergency/${id}/location`, {
@@ -139,7 +139,7 @@ const EmergencyTracking = () => {
                             speed: speed || 0,
                             accuracy: accuracy || 0
                         });
-                        
+
                         // Emit via socket for real-time updates
                         socket.emit('location_update', {
                             emergencyId: id,
@@ -159,10 +159,10 @@ const EmergencyTracking = () => {
                     console.error('Geolocation error:', err);
                     toast.error('Failed to get your location');
                 },
-                { 
-                    enableHighAccuracy: true, 
-                    timeout: 10000, 
-                    maximumAge: 5000 
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 5000
                 }
             );
 
@@ -185,35 +185,35 @@ const EmergencyTracking = () => {
     // Calculate ETA based on distance and speed
     const calculateETA = (locationData) => {
         if (!emergency?.location?.coordinates || !locationData) return null;
-        
+
         const requesterCoords = emergency.location.coordinates; // [lng, lat]
         const volunteerCoords = [locationData.longitude, locationData.latitude];
-        
+
         // Calculate distance in meters
         const distance = calculateDistance(
             requesterCoords[1], requesterCoords[0],
             volunteerCoords[1], volunteerCoords[0]
         );
-        
+
         // Estimate time (assuming walking speed ~1.4 m/s)
         const speed = locationData.speed || 1.4;
         const etaSeconds = distance / speed;
-        
+
         return new Date(Date.now() + etaSeconds * 1000);
     };
 
     // Haversine distance calculation
     const calculateDistance = (lat1, lon1, lat2, lon2) => {
         const R = 6371e3; // Earth radius in meters
-        const φ1 = lat1 * Math.PI/180;
-        const φ2 = lat2 * Math.PI/180;
-        const Δφ = (lat2-lat1) * Math.PI/180;
-        const Δλ = (lon2-lon1) * Math.PI/180;
+        const φ1 = lat1 * Math.PI / 180;
+        const φ2 = lat2 * Math.PI / 180;
+        const Δφ = (lat2 - lat1) * Math.PI / 180;
+        const Δλ = (lon2 - lon1) * Math.PI / 180;
 
-        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                  Math.cos(φ1) * Math.cos(φ2) *
-                  Math.sin(Δλ/2) * Math.sin(Δλ/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
         return R * c;
     };
@@ -226,19 +226,19 @@ const EmergencyTracking = () => {
                     enableHighAccuracy: true
                 });
             });
-            
+
             const { latitude, longitude } = position.coords;
-            
+
             const response = await api.post(`/emergency/${id}/tracking-status`, {
                 status: newStatus,
                 latitude,
                 longitude
             });
-            
+
             if (response.data.success) {
                 setEmergency(prev => ({ ...prev, status: newStatus }));
                 toast.success(`Status updated to: ${newStatus}`);
-                
+
                 // Emit via socket
                 if (socket) {
                     socket.emit('tracking_status_update', {
@@ -272,6 +272,11 @@ const EmergencyTracking = () => {
 
     if (loading) return <div className="p-8 text-center">Loading...</div>;
     if (!emergency) return <div className="p-8 text-center">Emergency not found</div>;
+
+    const isAssignedVolunteer = user && emergency.assignedVolunteer && (
+        emergency.assignedVolunteer._id === user._id ||
+        emergency.assignedVolunteer === user._id
+    );
 
     const getStatusColor = (status) => {
         switch (status) {
@@ -330,13 +335,13 @@ const EmergencyTracking = () => {
         if (!etaDate) return 'Calculating...';
         const now = new Date();
         const diff = etaDate - now;
-        
+
         if (diff <= 0) return 'Arriving soon';
-        
+
         const minutes = Math.floor(diff / 60000);
         if (minutes < 1) return 'Less than 1 min';
         if (minutes < 60) return `${minutes} min`;
-        
+
         const hours = Math.floor(minutes / 60);
         const remainingMinutes = minutes % 60;
         return `${hours}h ${remainingMinutes}m`;
@@ -353,13 +358,17 @@ const EmergencyTracking = () => {
                             {emergency.type} Emergency
                         </h1>
                         <p className="text-gray-500 text-sm">ID: {emergency._id}</p>
+                        <p className="text-gray-500 text-sm flex items-center gap-1 mt-1">
+                            <FaClock size={12} />
+                            Reported: {new Date(emergency.createdAt).toLocaleString()}
+                        </p>
                     </div>
-                    
+
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                         <div className={`px-4 py-2 rounded-full font-bold text-lg ${getStatusColor(emergency.status)}`}>
                             {emergency.status}
                         </div>
-                        
+
                         {/* ETA Display */}
                         {eta && emergency.status === 'On The Way' && (
                             <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg">
@@ -367,7 +376,7 @@ const EmergencyTracking = () => {
                                 <span className="font-medium">ETA: {formatETA(eta)}</span>
                             </div>
                         )}
-                        
+
                         {/* Status Update Buttons for Volunteer */}
                         {emergency.assignedVolunteer?._id === user._id && emergency.status !== 'Completed' && (
                             <div className="flex flex-wrap gap-2">
@@ -389,14 +398,14 @@ const EmergencyTracking = () => {
                                 )}
                             </div>
                         )}
-                        
+
                         {/* Complete Rescue Button - Only for requester */}
                         {emergency.requester?._id === user._id && emergency.status !== 'Completed' && (
                             <button
                                 onClick={completeRescue}
                                 disabled={completingRescue}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-white transition ${completingRescue 
-                                    ? 'bg-gray-400 cursor-not-allowed' 
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-white transition ${completingRescue
+                                    ? 'bg-gray-400 cursor-not-allowed'
                                     : 'bg-green-600 hover:bg-green-700'}
                                 `}
                             >
@@ -413,7 +422,7 @@ const EmergencyTracking = () => {
                                 )}
                             </button>
                         )}
-                        
+
                         {/* Show confirmation when completed */}
                         {emergency.status === 'Completed' && (
                             <div className="flex flex-col gap-2">
@@ -454,29 +463,94 @@ const EmergencyTracking = () => {
 
                     {/* Info Sidebar */}
                     <div className="space-y-6">
-                        {/* Volunteer Info Card */}
+                        {/* Contact Info Card - Dynamic based on role */}
                         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                            <h2 className="font-bold text-gray-700 mb-4 border-b pb-2">Assigned Volunteer</h2>
-                            {emergency.assignedVolunteer ? (
-                                <div className="text-center">
-                                    <div className="w-20 h-20 bg-gray-200 rounded-full mx-auto mb-3 flex items-center justify-center">
-                                        <FaUserShield size={40} className="text-gray-500" />
-                                    </div>
-                                    <h3 className="text-xl font-bold">{emergency.assignedVolunteer.name}</h3>
-                                    <p className="text-gray-500 mb-4">{emergency.assignedVolunteer.phone}</p>
+                            <h2 className="font-bold text-gray-700 mb-4 border-b pb-2">
+                                {isAssignedVolunteer ? "Person in Distress" : "Assigned Volunteer"}
+                            </h2>
 
-                                    <a href={`tel:${emergency.assignedVolunteer.phone}`} className="flex items-center justify-center gap-2 w-full bg-green-500 text-white py-3 rounded-xl font-bold hover:bg-green-600 transition">
-                                        <FaPhoneAlt /> Call Volunteer
-                                    </a>
-                                </div>
-                            ) : (
-                                <div className="text-center py-8">
-                                    <div className="animate-pulse">
-                                        <div className="h-12 w-12 bg-yellow-200 rounded-full mx-auto mb-2"></div>
-                                        <p className="text-gray-600 font-medium">Searching for nearby volunteers...</p>
+                            {isAssignedVolunteer ? (
+                                // View for Volunteer: Show Requester Info
+                                emergency.requester ? (
+                                    <div className="text-center">
+                                        <div className="w-24 h-24 bg-red-100 rounded-full mx-auto mb-3 flex items-center justify-center overflow-hidden border-2 border-red-500">
+                                            {emergency.requester.profilePicture ? (
+                                                <img
+                                                    src={emergency.requester.profilePicture}
+                                                    alt={emergency.requester.name}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                <FaUserShield size={40} className="text-red-500" />
+                                            )}
+                                        </div>
+                                        <h3 className="text-xl font-bold text-gray-800">{emergency.requester.name}</h3>
+                                        <div className="flex justify-center items-center gap-2 mb-4">
+                                            <span className="bg-red-100 text-red-800 text-xs font-bold px-2 py-1 rounded-full uppercase">
+                                                {emergency.type} Request
+                                            </span>
+                                            {emergency.requester.bloodGroup && (
+                                                <span className="bg-gray-100 text-gray-800 text-xs font-bold px-2 py-1 rounded-full border border-gray-300">
+                                                    Blood: {emergency.requester.bloodGroup}
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <a href={`tel:${emergency.requester.phone}`} className="flex items-center justify-center gap-2 w-full bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition shadow-sm">
+                                                <FaPhoneAlt /> Call Person
+                                            </a>
+                                        </div>
                                     </div>
-                                    <p className="text-xs text-gray-400 mt-2">We have notified volunteers in your area.</p>
-                                </div>
+                                ) : (
+                                    <div className="text-center py-4 text-gray-500">
+                                        Requester information unavailable
+                                    </div>
+                                )
+                            ) : (
+                                // View for Requester: Show Volunteer Info
+                                emergency.assignedVolunteer ? (
+                                    <div className="text-center">
+                                        <div className="w-24 h-24 bg-blue-100 rounded-full mx-auto mb-3 flex items-center justify-center overflow-hidden border-2 border-blue-500">
+                                            {emergency.assignedVolunteer.profilePicture ? (
+                                                <img
+                                                    src={emergency.assignedVolunteer.profilePicture}
+                                                    alt={emergency.assignedVolunteer.name}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                <FaUserShield size={40} className="text-blue-500" />
+                                            )}
+                                        </div>
+                                        <h3 className="text-xl font-bold text-gray-800">{emergency.assignedVolunteer.name}</h3>
+                                        <p className="text-gray-500 mb-1">{emergency.assignedVolunteer.phone}</p>
+                                        <div className="flex justify-center mb-4">
+                                            <div className="flex items-center bg-yellow-50 px-2 py-1 rounded border border-yellow-200">
+                                                <FaStar className="text-yellow-400 mr-1" />
+                                                <span className="font-bold text-gray-700">
+                                                    {emergency.assignedVolunteer.averageRating?.toFixed(1) || 'New'}
+                                                </span>
+                                                <span className="text-xs text-gray-500 ml-1">
+                                                    ({emergency.assignedVolunteer.totalReviews || 0})
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <a href={`tel:${emergency.assignedVolunteer.phone}`} className="flex items-center justify-center gap-2 w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-sm">
+                                            <FaPhoneAlt /> Call Volunteer
+                                        </a>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8">
+                                        <div className="animate-pulse">
+                                            <div className="h-16 w-16 bg-yellow-100 rounded-full mx-auto mb-3 flex items-center justify-center">
+                                                <FaSpinner className="animate-spin text-yellow-500 text-2xl" />
+                                            </div>
+                                            <p className="text-gray-800 font-bold mb-1">Searching for volunteers...</p>
+                                            <p className="text-sm text-gray-500">Hold tight! We're notifying people nearby.</p>
+                                        </div>
+                                    </div>
+                                )
                             )}
                         </div>
 
@@ -514,12 +588,12 @@ const EmergencyTracking = () => {
                             <div className="mt-3 text-sm text-gray-500">
                                 <p>Location: {emergency.location?.address || 'Unknown'}</p>
                             </div>
-                            
+
                             {/* Emergency Images */}
                             {emergency.images && emergency.images.length > 0 && (
-                                <EmergencyImageGallery 
-                                    images={emergency.images} 
-                                    emergencyTitle={`${emergency.type} Emergency`} 
+                                <EmergencyImageGallery
+                                    images={emergency.images}
+                                    emergencyTitle={`${emergency.type} Emergency`}
                                 />
                             )}
                         </div>

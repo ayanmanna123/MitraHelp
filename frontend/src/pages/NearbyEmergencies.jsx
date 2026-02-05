@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { FaMapMarkerAlt, FaPhone, FaArrowLeft, FaExclamationTriangle } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaPhone, FaArrowLeft, FaExclamationTriangle, FaEye } from 'react-icons/fa';
 import { Link, useNavigate } from 'react-router-dom';
+import EmergencyDetailModal from '../components/shared/EmergencyDetailModal';
 
 const NearbyEmergencies = () => {
     const { user } = useAuth();
@@ -10,6 +11,7 @@ const NearbyEmergencies = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [location, setLocation] = useState(null);
+    const [selectedEmergency, setSelectedEmergency] = useState(null);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -123,15 +125,23 @@ const NearbyEmergencies = () => {
                                         <p className="text-gray-700 italic">"{emergency.description}"</p>
                                     </div>
                                     <button
-                                        onClick={() => handleAccept(emergency._id)}
-                                        className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-medium transition shadow-sm hover:shadow"
+                                        onClick={() => setSelectedEmergency(emergency)}
+                                        className="bg-white border border-red-600 text-red-600 hover:bg-red-50 px-6 py-2 rounded-lg font-medium transition shadow-sm hover:shadow flex items-center gap-2"
                                     >
-                                        Accept
+                                        <FaEye /> View Details
                                     </button>
                                 </div>
                             </div>
                         ))}
                     </div>
+                )}
+
+                {selectedEmergency && (
+                    <EmergencyDetailModal
+                        emergency={selectedEmergency}
+                        onClose={() => setSelectedEmergency(null)}
+                        onAccept={handleAccept}
+                    />
                 )}
             </div>
         </div>
