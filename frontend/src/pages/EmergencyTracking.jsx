@@ -6,7 +6,8 @@ import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import ChatBox from '../components/ChatBox';
 import { toast } from 'react-hot-toast';
-import { FaPhoneAlt, FaUserShield, FaAmbulance, FaCheckCircle, FaSpinner, FaLocationArrow, FaRoute, FaClock } from 'react-icons/fa';
+import { FaPhoneAlt, FaUserShield, FaAmbulance, FaCheckCircle, FaSpinner, FaLocationArrow, FaRoute, FaClock, FaStar, FaRegStar, FaStarHalfAlt } from 'react-icons/fa';
+import ReviewModal from '../components/shared/ReviewModal';
 
 const EmergencyTracking = () => {
     const { id } = useParams();
@@ -16,6 +17,7 @@ const EmergencyTracking = () => {
     const [completingRescue, setCompletingRescue] = useState(false);
     const [trackingData, setTrackingData] = useState(null);
     const [eta, setEta] = useState(null);
+    const [showReviewModal, setShowReviewModal] = useState(false);
     const socket = useSocket();
     const { user } = useAuth();
     const navigate = useNavigate();
@@ -252,6 +254,21 @@ const EmergencyTracking = () => {
         }
     };
 
+    // Submit review function
+    const submitReview = async (reviewData) => {
+        try {
+            const response = await api.post(`/emergency/${id}/review`, reviewData);
+            if (response.data.success) {
+                toast.success(response.data.message);
+                // Refresh emergency data to update UI
+                fetchEmergency();
+            }
+        } catch (error) {
+            console.error('Error submitting review:', error);
+            toast.error(error.response?.data?.message || 'Failed to submit review');
+        }
+    };
+
     if (loading) return <div className="p-8 text-center">Loading...</div>;
     if (!emergency) return <div className="p-8 text-center">Emergency not found</div>;
 
@@ -398,9 +415,20 @@ const EmergencyTracking = () => {
                         
                         {/* Show confirmation when completed */}
                         {emergency.status === 'Completed' && (
-                            <div className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 rounded-lg">
-                                <FaCheckCircle />
-                                <span className="font-medium">Rescue Completed</span>
+                            <div className="flex flex-col gap-2">
+                                <div className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 rounded-lg">
+                                    <FaCheckCircle />
+                                    <span className="font-medium">Rescue Completed</span>
+                                </div>
+                                {/* Show review button for requester after completion */}
+                                {emergency.requester?._id === user._id && !emergency.reviews?.find(r => r.requester === user._id) && (
+                                    <button
+                                        onClick={() => setShowReviewModal(true)}
+                                        className="flex items-center justify-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition"
+                                    >
+                                        <FaStar /> Rate Volunteer
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>
@@ -493,6 +521,13 @@ const EmergencyTracking = () => {
                     </div>
                 </div>
             </div>
+            {/* Review Modal */}
+            <ReviewModal
+                isOpen={showReviewModal}
+                onClose={() => setShowReviewModal(false)}
+                onSubmit={submitReview}
+                emergency={emergency}
+            />
         </div>
     );
 };

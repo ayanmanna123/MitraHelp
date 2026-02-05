@@ -140,10 +140,26 @@ const userSchema = new mongoose.Schema({
             type: String,
             default: 'Friend'
         }
-    }]
+    }],
+    averageRating: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: 5
+    },
+    totalReviews: {
+        type: Number,
+        default: 0
+    }
 }, {
     timestamps: true
 });
+
+// Create indexes for efficient queries
+userSchema.index({ averageRating: 1 });
+userSchema.index({ totalReviews: 1 });
+userSchema.index({ role: 1, averageRating: -1 });
+userSchema.index({ role: 1, totalReviews: -1 });
 
 // Create 2dsphere index for geospatial queries
 userSchema.index({ location: '2dsphere' });

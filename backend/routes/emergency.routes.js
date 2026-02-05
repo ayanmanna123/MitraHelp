@@ -1,5 +1,6 @@
 const express = require('express');
 const { createEmergency, getEmergency, acceptEmergency, updateStatus, getUserEmergencies, getNearbyEmergencies, getAssignedEmergencies, updateVolunteerLocation, updateTrackingStatus, getTrackingData } = require('../controllers/emergency.controller');
+const { submitReview, getReviewsForVolunteer, getReviewsByRequester } = require('../controllers/reviewController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -16,5 +17,10 @@ router.put('/:id/status', protect, updateStatus);
 router.post('/:id/location', protect, updateVolunteerLocation);
 router.post('/:id/tracking-status', protect, updateTrackingStatus);
 router.get('/:id/tracking', protect, getTrackingData);
+
+// Review endpoints
+router.post('/:id/review', protect, submitReview);
+router.get('/reviews/volunteer/:volunteerId', protect, getReviewsForVolunteer);
+router.get('/reviews/my-reviews', protect, getReviewsByRequester);
 
 module.exports = router;

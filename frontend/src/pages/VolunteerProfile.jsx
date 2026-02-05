@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import { FaStar, FaRegStar, FaStarHalfAlt } from 'react-icons/fa';
 import { FaUser, FaCheckCircle, FaTimesCircle, FaClock, FaUpload, FaShieldAlt, FaAmbulance, FaExternalLinkAlt } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 
@@ -17,6 +18,48 @@ const VolunteerProfile = () => {
         selfie: false
     });
     const [recentEmergency, setRecentEmergency] = useState(null);
+    const [reviews, setReviews] = useState([]);
+    const [loadingReviews, setLoadingReviews] = useState(false);
+    const [averageRating, setAverageRating] = useState(0);
+    const [totalReviews, setTotalReviews] = useState(0);
+
+    // Function to render star ratings
+    const renderStars = (rating) => {
+        const stars = [];
+        const fullStars = Math.floor(rating);
+        const hasHalfStar = rating % 1 >= 0.5;
+        
+        for (let i = 0; i < fullStars; i++) {
+            stars.push(<FaStar key={`full-${i}`} className="text-yellow-400" />);
+        }
+        
+        if (hasHalfStar) {
+            stars.push(<FaStarHalfAlt key="half" className="text-yellow-400" />);
+        }
+        
+        const emptyStars = 5 - stars.length;
+        for (let i = 0; i < emptyStars; i++) {
+            stars.push(<FaRegStar key={`empty-${i}`} className="text-yellow-400" />);
+        }
+        
+        return stars;
+    };
+
+    const fetchReviews = async () => {
+        try {
+            setLoadingReviews(true);
+            const response = await api.get(`/emergency/reviews/volunteer/${user._id}`);
+            if (response.data.success) {
+                setReviews(response.data.data.reviews);
+                setAverageRating(response.data.data.averageRating);
+                setTotalReviews(response.data.data.totalReviews);
+            }
+        } catch (error) {
+            console.error('Error fetching reviews:', error);
+        } finally {
+            setLoadingReviews(false);
+        }
+    };
 
     useEffect(() => {
         const fetchVolunteerProgress = async () => {
@@ -54,6 +97,7 @@ const VolunteerProfile = () => {
 
         fetchVolunteerProgress();
         fetchRecentEmergency();
+        fetchReviews();
     }, [user]);
 
     const handleFileChange = (e, type) => {
@@ -375,6 +419,117 @@ const VolunteerProfile = () => {
                             <FaTimesCircle className="text-red-500 text-2xl mx-auto mb-2" />
                             <h3 className="text-lg font-semibold text-red-800">Verification Rejected</h3>
                             <p className="text-red-700">Your application was rejected. {user.rejectionReason && `Reason: ${user.rejectionReason}`}</p>
+                        </div>
+                    )}
+                </div>
+
+                {/* Reviews Section */}
+                <div className="mt-8 bg-white rounded-xl shadow p-6">
+                    <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                        <FaStar className="text-yellow-400" />
+                        Reviews & Ratings
+                        {totalReviews > 0 && (
+                            <span className="text-sm text-gray-500">({totalReviews} review{totalReviews !== 1 ? 's' : ''})</span>
+                        )}
+                    </h2>
+                    
+                    <div className="mb-6 flex items-center gap-4">
+                        <div className="text-center">
+                            <div className="text-4xl font-bold text-gray-800">{averageRating > 0 ? averageRating.toFixed(1) : 'N/A'}</div>
+                            <div className="flex justify-center gap-1 my-2">
+                                {renderStars(averageRating)}
+                            </div>
+                            <div className="text-sm text-gray-600">{totalReviews} review{totalReviews !== 1 ? 's' : ''}</div>
+                        </div>
+                        
+                        <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="w-16 text-sm text-gray-600">5 stars</span>
+                                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                    <div 
+                                        className="bg-yellow-400 h-2 rounded-full" 
+                                        style={{ width: `${reviews.length > 0 ? (reviews.filter(r => r.rating === 5).length / reviews.length) * 100 : 0}%` }}
+                                    ></div>
+                                </div>
+                                <span className="w-8 text-xs text-gray-600">{reviews.length > 0 ? reviews.filter(r => r.rating === 5).length : 0}</span>
+                            </div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="w-16 text-sm text-gray-600">4 stars</span>
+                                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                    <div 
+                                        className="bg-yellow-400 h-2 rounded-full" 
+                                        style={{ width: `${reviews.length > 0 ? (reviews.filter(r => r.rating === 4).length / reviews.length) * 100 : 0}%` }}
+                                    ></div>
+                                </div>
+                                <span className="w-8 text-xs text-gray-600">{reviews.length > 0 ? reviews.filter(r => r.rating === 4).length : 0}</span>
+                            </div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="w-16 text-sm text-gray-600">3 stars</span>
+                                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                    <div 
+                                        className="bg-yellow-400 h-2 rounded-full" 
+                                        style={{ width: `${reviews.length > 0 ? (reviews.filter(r => r.rating === 3).length / reviews.length) * 100 : 0}%` }}
+                                    ></div>
+                                </div>
+                                <span className="w-8 text-xs text-gray-600">{reviews.length > 0 ? reviews.filter(r => r.rating === 3).length : 0}</span>
+                            </div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="w-16 text-sm text-gray-600">2 stars</span>
+                                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                    <div 
+                                        className="bg-yellow-400 h-2 rounded-full" 
+                                        style={{ width: `${reviews.length > 0 ? (reviews.filter(r => r.rating === 2).length / reviews.length) * 100 : 0}%` }}
+                                    ></div>
+                                </div>
+                                <span className="w-8 text-xs text-gray-600">{reviews.length > 0 ? reviews.filter(r => r.rating === 2).length : 0}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="w-16 text-sm text-gray-600">1 star</span>
+                                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                    <div 
+                                        className="bg-yellow-400 h-2 rounded-full" 
+                                        style={{ width: `${reviews.length > 0 ? (reviews.filter(r => r.rating === 1).length / reviews.length) * 100 : 0}%` }}
+                                    ></div>
+                                </div>
+                                <span className="w-8 text-xs text-gray-600">{reviews.length > 0 ? reviews.filter(r => r.rating === 1).length : 0}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {loadingReviews ? (
+                        <div className="text-center py-8">
+                            <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {reviews.length > 0 ? (
+                                reviews.map((review) => (
+                                    <div key={review._id} className="border border-gray-200 rounded-lg p-4">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex gap-1">
+                                                        {renderStars(review.rating)}
+                                                    </div>
+                                                    <span className="text-sm text-gray-500">
+                                                        {new Date(review.createdAt).toLocaleDateString()}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="text-sm text-gray-500">
+                                                {review.anonymous ? 'Anonymous' : review.requester.name}
+                                            </div>
+                                        </div>
+                                        {review.comment && (
+                                            <p className="text-gray-700 pl-6">"{review.comment}"</p>
+                                        )}
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-center py-8 text-gray-500">
+                                    No reviews yet
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

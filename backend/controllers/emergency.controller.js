@@ -188,7 +188,8 @@ exports.getEmergency = async (req, res) => {
     try {
         const emergency = await Emergency.findById(req.params.id)
             .populate('requester', 'name phone location')
-            .populate('assignedVolunteer', 'name phone location');
+            .populate('assignedVolunteer', 'name phone location')
+            .populate('reviews');
 
         if (!emergency) {
             return res.status(404).json({ success: false, message: 'Emergency not found' });
@@ -244,6 +245,7 @@ exports.getUserEmergencies = async (req, res) => {
     try {
         const emergencies = await Emergency.find({ requester: req.user.id })
             .populate('assignedVolunteer', 'name phone')
+            .populate('reviews')
             .sort({ createdAt: -1 });
 
         res.status(200).json({
@@ -375,6 +377,7 @@ exports.getAssignedEmergencies = async (req, res) => {
             status: { $in: ['Accepted', 'On The Way'] } // Only active ones primarily
         })
             .populate('requester', 'name phone')
+            .populate('reviews')
             .sort({ updatedAt: -1 });
 
         // If no active, maybe fetch the last completed one?
@@ -392,6 +395,7 @@ exports.getAssignedEmergencies = async (req, res) => {
             assignedVolunteer: req.user.id
         })
             .populate('requester', 'name phone')
+            .populate('reviews')
             .sort({ updatedAt: -1 });
 
         if (!recentEmergency) {
