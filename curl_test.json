@@ -1,0 +1,73 @@
+Note: Unnecessary use of -X or --request, POST is already inferred.
+  % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
+                                 Dload  Upload  Total   Spent   Left   Speed
+
+  0      0   0      0   0      0      0      0                              0* Host mitrahelp.onrender.com:443 was resolved.
+* IPv6: (none)
+* IPv4: 216.24.57.251, 216.24.57.7
+*   Trying 216.24.57.251:443...
+* schannel: disabled automatic use of client certificate
+* ALPN: curl offers http/1.1
+* ALPN: server accepted http/1.1
+* Established connection to mitrahelp.onrender.com (216.24.57.251 port 443) from 192.168.29.13 port 59825 
+* using HTTP/1.x
+> POST /api/auth/send-otp HTTP/1.1
+
+> Host: mitrahelp.onrender.com
+
+> User-Agent: curl/8.18.0
+
+> Accept: */*
+
+> Content-Type: application/json
+
+> Content-Length: 2
+
+> 
+
+} [2 bytes data]
+* upload completely sent off: 2 bytes
+* schannel: remote party requests renegotiation
+* schannel: renegotiating SSL/TLS connection
+* schannel: SSL/TLS connection renegotiated
+< HTTP/1.1 500 Internal Server Error
+
+< Date: Wed, 25 Feb 2026 19:54:30 GMT
+
+< Content-Type: application/json; charset=utf-8
+
+< Transfer-Encoding: chunked
+
+< Connection: keep-alive
+
+< CF-RAY: 9d39c146c97f0e6e-BOM
+
+< etag: W/"7a-oKQKaU4gZ2boxpzjYLaWf3Xdkkg"
+
+< rndr-id: 46e9f151-a6d2-49ba
+
+< vary: Accept-Encoding
+
+< x-powered-by: Express
+
+< x-render-origin-server: Render
+
+< cf-cache-status: DYNAMIC
+
+< Server: cloudflare
+
+< alt-svc: h3=":443"; ma=86400
+
+< 
+
+{ [133 bytes data]
+
+100    124   0    122 100      2    525      8                              0
+100    124   0    122 100      2    525      8                              0
+100    124   0    122 100      2    524      8                              0
+* Connection #0 to host mitrahelp.onrender.com:443 left intact
+Note: Unnecessary use of -X or --request, POST is already inferred.
+* URL rejected: Malformed input to a URL function
+* closing connection #-1
+curl: (3) URL rejected: Malformed input to a URL function
+{"success":false,"message":"Server Error","error":"Expected property name or '}' in JSON at position 1 (line 1 column 2)"}
