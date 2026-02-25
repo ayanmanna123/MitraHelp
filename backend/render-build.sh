@@ -5,10 +5,13 @@ set -o errexit
 # Install Node dependencies
 npm install
 
+# Print versions for debugging
+python3 --version
+pip3 --version
+
 # Install Python and dependencies
-# Note: Render's Node environments include Python 3
 if [ -f requirements.txt ]; then
   echo "Installing Python dependencies..."
-  pip install --upgrade pip
-  pip install -r requirements.txt
+  python3 -m pip install --upgrade pip
+  python3 -m pip install -r requirements.txt
 fi
