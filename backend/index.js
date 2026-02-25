@@ -18,20 +18,34 @@ const server = http.createServer(app);
 
 // Middleware
 app.use(express.json());
+
+// List of allowed origins - Add your Vercel URL here
+const allowedOrigins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://mitra-help.vercel.app" // Your production frontend
+];
+
 app.use(cors({
-    origin: ["http://localhost:5173", "http://localhost:3000"],
+    origin: function (origin, callback) {
+        // allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.indexOf(origin) === -1) {
+            const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+            return callback(new Error(msg), false);
+        }
+        return callback(null, true);
+    },
     credentials: true
 }));
 
 app.use('/uploads', express.static('uploads'));
 
-// Cross-Origin-Opener-Policy for Google Auth popup
-app.use((req, res, next) => {
-    res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
-    next();
-});
-
-app.use(helmet());
+// Helmet configuration - adjusted for Google Auth
+app.use(helmet({
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 if (process.env.NODE_ENV === 'development') {
     app.use(morgan('dev'));
 }
