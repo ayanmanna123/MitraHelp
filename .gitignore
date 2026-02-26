@@ -23,3 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 .agent
+
+# Firebase credentials
+firebase-service-account.json
+
+# Environment files
+.env

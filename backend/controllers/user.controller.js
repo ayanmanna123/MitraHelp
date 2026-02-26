@@ -279,3 +279,26 @@ exports.deleteEmergencyContact = async (req, res) => {
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
+
+// @desc    Save/update FCM push notification token
+// @route   PUT /api/users/fcm-token
+// @access  Private
+exports.updateFcmToken = async (req, res) => {
+    try {
+        const { fcmToken } = req.body;
+
+        if (!fcmToken) {
+            return res.status(400).json({ success: false, message: 'FCM token is required' });
+        }
+
+        await User.findByIdAndUpdate(req.user.id, { fcmToken });
+
+        res.status(200).json({
+            success: true,
+            message: 'FCM token saved successfully'
+        });
+    } catch (error) {
+        console.error('FCM token update error:', error);
+        res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    }
+};

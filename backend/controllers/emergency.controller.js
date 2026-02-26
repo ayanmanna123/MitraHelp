@@ -1,6 +1,7 @@
 const Emergency = require('../models/emergency.model');
 const User = require('../models/user.model');
 const { sendEmergencyNotifications } = require('../utils/emailService');
+const { sendPushNotification, sendPushToMultiple } = require('../utils/pushNotification');
 const fs = require('fs');
 const path = require('path');
 
@@ -89,7 +90,7 @@ exports.createEmergency = async (req, res) => {
                     $maxDistance: radiusInKm * 1000 // meters
                 }
             }
-        }).select('name email location permanentAddress');
+        }).select('name email location permanentAddress fcmToken');
 
         // Find volunteers by permanent address (within 15km for broader coverage)
         const permanentAddressRadiusKm = 15;
@@ -105,7 +106,7 @@ exports.createEmergency = async (req, res) => {
                     $maxDistance: permanentAddressRadiusKm * 1000 // meters
                 }
             }
-        }).select('name email location permanentAddress');
+        }).select('name email location permanentAddress fcmToken');
 
         // Combine and deduplicate volunteers
         const allVolunteers = [...nearbyVolunteers];
@@ -138,6 +139,24 @@ exports.createEmergency = async (req, res) => {
                     requester: req.user.name
                 });
             });
+        }
+
+        // Send push notifications to volunteers
+        const volunteerFcmTokens = allVolunteers
+            .map(v => v.fcmToken)
+            .filter(Boolean);
+        if (volunteerFcmTokens.length > 0) {
+            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+            sendPushToMultiple(
+                volunteerFcmTokens,
+                'Emergency Nearby!',
+                `${emergency.type} emergency at ${emergency.location?.address || 'nearby location'}`,
+                {
+                    emergencyId: emergency._id.toString(),
+                    type: emergency.type,
+                    click_action: `${frontendUrl}/emergency/${emergency._id}`
+                }
+            ).catch(err => console.error('Push notification error:', err));
         }
 
         // Send email notifications to all volunteers
@@ -241,6 +260,22 @@ exports.acceptEmergency = async (req, res) => {
             });
         }
 
+        // Push notification to requester
+        const requester = await User.findById(emergency.requester).select('fcmToken');
+        if (requester?.fcmToken) {
+            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+            sendPushNotification(
+                requester.fcmToken,
+                'Volunteer On The Way!',
+                `${req.user.name || 'A volunteer'} has accepted your emergency request`,
+                {
+                    emergencyId: emergency._id.toString(),
+                    type: 'emergency_accepted',
+                    click_action: `${frontendUrl}/emergency/${emergency._id}`
+                }
+            ).catch(err => console.error('Push notification error:', err));
+        }
+
         res.status(200).json({ success: true, data: emergency });
 
     } catch (error) {
@@ -312,16 +347,33 @@ exports.updateStatus = async (req, res) => {
 
         // Notify other party
         const io = req.app.get('socketio');
-        if (io) {
-            const recipient = emergency.requester.toString() === req.user.id
-                ? emergency.assignedVolunteer?.toString()
-                : emergency.requester.toString();
+        const recipient = emergency.requester.toString() === req.user.id
+            ? emergency.assignedVolunteer?.toString()
+            : emergency.requester.toString();
 
-            if (recipient) {
-                io.to(recipient).emit('status_update', {
-                    emergencyId: emergency._id,
-                    status
-                });
+        if (io && recipient) {
+            io.to(recipient).emit('status_update', {
+                emergencyId: emergency._id,
+                status
+            });
+        }
+
+        // Push notification to the other party
+        if (recipient) {
+            const targetUser = await User.findById(recipient).select('fcmToken');
+            if (targetUser?.fcmToken) {
+                const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+                sendPushNotification(
+                    targetUser.fcmToken,
+                    'Emergency Update',
+                    `Emergency status changed to ${status}`,
+                    {
+                        emergencyId: emergency._id.toString(),
+                        type: 'status_update',
+                        status,
+                        click_action: `${frontendUrl}/emergency/${emergency._id}`
+                    }
+                ).catch(err => console.error('Push notification error:', err));
             }
         }
 
@@ -570,19 +622,36 @@ exports.updateTrackingStatus = async (req, res) => {
 
         // Emit status update via socket
         const io = req.app.get('socketio');
-        if (io) {
-            const recipientId = emergency.requester.toString() === req.user.id
-                ? emergency.assignedVolunteer?.toString()
-                : emergency.requester.toString();
+        const recipientId = emergency.requester.toString() === req.user.id
+            ? emergency.assignedVolunteer?.toString()
+            : emergency.requester.toString();
 
-            if (recipientId) {
-                io.to(recipientId).emit('tracking_status_update', {
-                    emergencyId: emergency._id,
-                    status,
-                    userId: req.user.id,
-                    userName: req.user.name,
-                    timestamp: new Date()
-                });
+        if (io && recipientId) {
+            io.to(recipientId).emit('tracking_status_update', {
+                emergencyId: emergency._id,
+                status,
+                userId: req.user.id,
+                userName: req.user.name,
+                timestamp: new Date()
+            });
+        }
+
+        // Push notification to the other party
+        if (recipientId) {
+            const targetUser = await User.findById(recipientId).select('fcmToken');
+            if (targetUser?.fcmToken) {
+                const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+                sendPushNotification(
+                    targetUser.fcmToken,
+                    'Tracking Update',
+                    `${req.user.name || 'Someone'} - status is now ${status}`,
+                    {
+                        emergencyId: emergency._id.toString(),
+                        type: 'tracking_update',
+                        status,
+                        click_action: `${frontendUrl}/emergency/${emergency._id}`
+                    }
+                ).catch(err => console.error('Push notification error:', err));
             }
         }
 

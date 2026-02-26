@@ -6,12 +6,16 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const { Server } = require('socket.io');
 const connectDB = require('./config/db');
+const { initializeFirebase } = require('./config/firebase');
 
 // Load env vars
 dotenv.config();
 
 // Connect to database
 connectDB();
+
+// Initialize Firebase for push notifications
+initializeFirebase();
 
 const app = express();
 const server = http.createServer(app);

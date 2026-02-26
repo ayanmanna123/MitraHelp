@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import io from 'socket.io-client';
 import { useAuth } from './AuthContext';
 import { toast } from 'react-hot-toast';
+import usePushNotification from '../hooks/usePushNotification';
 
 const SocketContext = createContext();
 
@@ -10,6 +11,20 @@ export const useSocket = () => useContext(SocketContext);
 export const SocketProvider = ({ children }) => {
     const [socket, setSocket] = useState(null);
     const { user } = useAuth();
+
+    // Initialize push notifications when user is logged in
+    const { permissionStatus, requestPermission, isSupported } = usePushNotification(user);
+
+    // Prompt for notification permission on first login if not yet decided
+    useEffect(() => {
+        if (user && isSupported && permissionStatus === 'default') {
+            // Small delay to not overwhelm the user immediately on login
+            const timer = setTimeout(() => {
+                requestPermission();
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [user, isSupported, permissionStatus, requestPermission]);
 
     useEffect(() => {
         if (user) {
